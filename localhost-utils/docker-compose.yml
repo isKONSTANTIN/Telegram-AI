@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  postgres-finwave-bot:
+    image: postgres:15.2
+    environment:
+      POSTGRES_DB: "tg_ai"
+      POSTGRES_USER: "tg_ai"
+      POSTGRES_PASSWORD: "change_me"
+    ports:
+      - "5432:5432"

@@ -1,0 +1,141 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'nu.studer.jooq' version '8.2'
+    id 'org.flywaydb.flyway' version '9.22.0'
+}
+
+group = 'su.knst.telegram.ai'
+version = '1.0.0'
+mainClassName = group + ".Main"
+archivesBaseName = 'Knst-Telegram-AI'
+
+sourceCompatibility = 17
+targetCompatibility = 17
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://nexus.finwave.app/repository/maven-public"
+    }
+}
+
+dependencies {
+    implementation 'com.ezylang:EvalEx:3.3.0'
+
+    implementation 'app.finwave.tat:telegram-abstractions-tools:3.2.5'
+    implementation 'app.finwave.scw:finwave-scw:0.4.1'
+
+    implementation 'com.github.pengrad:java-telegram-bot-api:7.9.1'
+
+    implementation 'io.github.stefanbratanov:jvm-openai:0.11.0'
+
+    implementation 'org.jsoup:jsoup:1.15.3'
+    implementation 'org.flywaydb:flyway-core:9.22.0'
+
+    implementation 'org.jooq:jooq:3.18.3'
+    implementation 'org.jooq:jooq-codegen-maven:3.18.3'
+    implementation 'org.jooq:jooq-meta:3.18.3'
+    implementation 'org.jooq:jooq-postgres-extensions:3.18.3'
+
+    implementation 'org.apache.commons:commons-text:1.9'
+
+    implementation 'com.google.inject:guice:5.1.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.google.guava:guava:33.2.1-jre'
+
+    implementation 'org.apache.pdfbox:pdfbox:3.0.3'
+    implementation 'org.apache.pdfbox:pdfbox-tools:3.0.3'
+
+    implementation 'org.apache.poi:poi-ooxml:5.2.3'
+
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: '2.0.7'
+
+    implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.3'
+    jooqGenerator 'org.postgresql:postgresql:42.7.3'
+
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+
+flyway {
+    url = 'jdbc:postgresql://localhost:5432/tg_ai'
+    user = 'tg_ai'
+    password = 'change_me'
+    schemas = ['public']
+    driver = 'org.postgresql.Driver'
+    baselineOnMigrate = true
+    locations = ['filesystem:src/main/resources/db/migration']
+}
+
+jooq {
+    configurations {
+        main {
+            generateSchemaSourceOnCompilation = true
+
+            generationTool {
+                jdbc {
+                    driver = 'org.postgresql.Driver'
+                    url = 'jdbc:postgresql://localhost:5432/tg_ai'
+                    user = 'tg_ai'
+                    password = 'change_me'
+                    properties {
+                        property {
+                            key = 'ssl'
+                            value = 'false'
+                        }
+                    }
+                }
+                generator {
+                    name = 'org.jooq.codegen.DefaultGenerator'
+                    database {
+                        name = 'org.jooq.meta.postgres.PostgresDatabase'
+                        inputSchema = 'public'
+                        forcedTypes {
+                            forcedType {
+                                name = 'varchar'
+                                includeExpression = '.*'
+                                includeTypes = 'INET'
+                            }
+                        }
+                    }
+                    generate {
+                        deprecated = false
+                        records = true
+                        immutablePojos = true
+                        fluentSetters = true
+                    }
+                    target {
+                        packageName = 'su.knst.telegram.ai.jooq'
+                        directory = 'build/generated-src/jooq/main'
+                    }
+                    strategy.name = 'org.jooq.codegen.DefaultGeneratorStrategy'
+                }
+            }
+        }
+    }
+}
+
+configurations.implementation.setCanBeResolved(true)
+
+tasks.getByName("generateJooq").dependsOn("flywayMigrate")
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from(configurations.implementation.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude 'META-INF', 'META-INF/**'
+    }
+
+    manifest {
+        attributes 'Main-Class': mainClassName
+        attributes 'Implementation-Version': archiveVersion
+    }
+
+    archiveFileName.set(archivesBaseName + '.jar')
+}
+
+test {
+    useJUnitPlatform()
+}
