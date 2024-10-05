@@ -79,7 +79,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/iskonstantin/tg-ai:latest
-            ghcr.io/iskonstantin/tg-ai:${{ steps.get_version.outputs.VERSION }}
+            ghcr.io/iskonstantin/telegram-ai:latest
+            ghcr.io/iskonstantin/telegram-ai:${{ steps.get_version.outputs.VERSION }}
           labels: |
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
