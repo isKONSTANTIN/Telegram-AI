@@ -1,0 +1,40 @@
+version: "3.9"
+services:
+  tg-ai:
+    image: ghcr.io/iskonstantin/telegram-ai:latest
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      JAVA_OPTS: ${JAVA_OPTS}
+    restart: unless-stopped
+    volumes:
+      - ./tg_ai/configs:/tg_ai/configs
+      - ./tg_ai/logs:/tg_ai/logs
+    networks:
+      knst-ai-net:
+          aliases:
+            - tg-ai
+  postgres:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB: "tg_ai"
+      POSTGRES_USER: "tg_ai"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - ./database:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U tg_ai -d tg_ai
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    ports:
+      - "5432"
+    networks:
+     knst-ai-net:
+       aliases:
+         - postgres
+networks:
+  knst-ai-net:
