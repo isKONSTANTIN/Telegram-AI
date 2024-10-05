@@ -11,7 +11,7 @@ permissions:
   packages: write
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
 
     services:
