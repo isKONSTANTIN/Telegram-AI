@@ -375,11 +375,14 @@ public class UserBridge {
         ));
 
         if (newReactions.contains("\uD83D\uDC4E")) {
-            AiMessagesRecord lastUserMessage = Optional.ofNullable(
-                    linkedMessages.stream()
+            AiMessagesRecord lastUserMessage = lastMessage;
+
+            List<AiMessagesRecord> userMessages = linkedMessages.stream()
                     .filter(m -> m.getRole().equals("user"))
-                    .toList().get(0)
-            ).orElse(lastMessage);
+                    .toList();
+
+            if (!userMessages.isEmpty())
+                lastUserMessage = userMessages.get(userMessages.size() - 1);
 
             scene.askAndAnswer(context.get().getId(), lastUserMessage.getMessageId().intValue());
         }
