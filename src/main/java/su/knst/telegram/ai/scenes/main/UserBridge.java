@@ -374,8 +374,15 @@ public class UserBridge {
                 ContentPart.textContentPart(newReactions)
         ));
 
-        if (newReactions.contains("\uD83D\uDC4E"))
-            scene.askAndAnswer(context.get().getId(), lastMessage.getMessageId().intValue());
+        if (newReactions.contains("\uD83D\uDC4E")) {
+            AiMessagesRecord lastUserMessage = Optional.ofNullable(
+                    linkedMessages.stream()
+                    .filter(m -> m.getRole().equals("user"))
+                    .toList().get(0)
+            ).orElse(lastMessage);
+
+            scene.askAndAnswer(context.get().getId(), lastUserMessage.getMessageId().intValue());
+        }
     }
 
     protected Pair<Boolean, String> needHandle(Message message, String text) {
