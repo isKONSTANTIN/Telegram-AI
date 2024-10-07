@@ -17,12 +17,9 @@ import su.knst.telegram.ai.jooq.tables.records.AiContextsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiPresetsRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
-import su.knst.telegram.ai.managers.ChatPreferencesManager;
 import su.knst.telegram.ai.utils.ContextMode;
 import su.knst.telegram.ai.utils.functions.FileDownloader;
-import su.knst.telegram.ai.utils.parsers.DocxParser;
-import su.knst.telegram.ai.utils.parsers.HtmlParser;
-import su.knst.telegram.ai.utils.parsers.PDFParser;
+import su.knst.telegram.ai.utils.parsers.TextConverters;
 import su.knst.telegram.ai.workers.AiWorker;
 
 import java.util.Arrays;
@@ -284,19 +281,19 @@ public class UserBridge {
                                 ContentPart.imageUrlContentPart(fileUrl)
                         ));
                     else if (mimeType.equals("application/pdf")) {
-                        String pdfText = FileDownloader.downloadFile(fileUrl).thenApply(PDFParser::parse).get().orElseThrow();
+                        String pdfText = FileDownloader.downloadFile(fileUrl).thenApply(TextConverters::parsePdf).get().orElseThrow();
 
                         aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
                                 ContentPart.textContentPart("User uploaded .pdf file with text: " + pdfText)
                         ));
                     } else if (mimeType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
-                        String docxText = FileDownloader.downloadFile(fileUrl).thenApply(DocxParser::parse).get().orElseThrow();
+                        String docxText = FileDownloader.downloadFile(fileUrl).thenApply(TextConverters::docx2markdown).get().orElseThrow();
 
                         aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
                                 ContentPart.textContentPart("User uploaded .docx file with text: " + docxText)
                         ));
                     } else if (mimeType.equals("text/html")) {
-                        String pageText = FileDownloader.downloadFile(fileUrl).thenApply(HtmlParser::parse).get().orElseThrow();
+                        String pageText = FileDownloader.downloadFile(fileUrl).thenApply(TextConverters::parseHtml).get().orElseThrow();
 
                         aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
                                 ContentPart.textContentPart("User uploaded .html file with text: " + pageText)

@@ -97,7 +97,7 @@ public class AiBridge {
                         new ContentMeta(null, update.callId())
                 ))).orElseThrow();
 
-                sendFileAndLinkContext(fileResult.content.getBytes(), fileResult.filename, record, replyTo).get();
+                sendFileAndLinkContext(fileResult.file, fileResult.filename, record, replyTo).get();
 
                 return;
             }
@@ -130,6 +130,31 @@ public class AiBridge {
         }
     }
 
+    protected CompletableFuture<?> sendFileAndLinkContext(File file, String filename, AiMessagesRecord aiMessage, int replyTo) {
+        ContextMode contextMode = ContextMode.values()[scene.preferences.getContextsMode()];
+
+        SendDocument request = new SendDocument(chatId, file).fileName(filename != null ? filename : file.getName());
+
+        if (contextMode == ContextMode.MULTI_REPLY)
+            request.replyToMessageId(replyTo);
+
+        return scene.getChatHandler().getCore()
+                .execute(request)
+                .whenComplete((r, t) -> {
+                    try {
+                        Files.deleteIfExists(file.toPath());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    if (t != null || !r.isOk())
+                        return;
+
+                    aiWorker.getMessagesManager().linkTelegramMessage(aiMessage.getId(), r.message().messageId());
+                    scene.lastContext = aiMessage.getAiContext();
+                });
+    }
+
     protected CompletableFuture<?> sendAndLinkContext(FunctionImageResult imageResult, AiMessagesRecord record, int replyTo) {
         CompletableFuture<File> future = FileDownloader.downloadFile(imageResult.url);
 
@@ -160,39 +185,6 @@ public class AiBridge {
         });
     }
 
-    protected CompletableFuture<?> sendFileAndLinkContext(byte[] bytes, String filename, AiMessagesRecord aiMessage, int replyTo) {
-        ContextMode contextMode = ContextMode.values()[scene.preferences.getContextsMode()];
-        Path tmpFile;
-
-        try {
-            tmpFile = Files.createTempFile(Path.of("/","tmp","/"), "knst_ai_response_",".txt");
-            Files.write(tmpFile, bytes);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        SendDocument request = new SendDocument(chatId, tmpFile.toFile()).fileName(filename != null ? filename : tmpFile.toFile().getName());
-
-        if (contextMode == ContextMode.MULTI_REPLY)
-            request.replyToMessageId(replyTo);
-
-        return scene.getChatHandler().getCore()
-                .execute(request)
-                .whenComplete((r, t) -> {
-                    try {
-                        Files.deleteIfExists(tmpFile);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
-                    if (t != null || !r.isOk())
-                        return;
-
-                    aiWorker.getMessagesManager().linkTelegramMessage(aiMessage.getId(), r.message().messageId());
-                    scene.lastContext = aiMessage.getAiContext();
-                });
-    }
-
     protected CompletableFuture<?> sendAndLinkContext(String answer, AiMessagesRecord aiMessage, int replyTo) {
         CompletableFuture<?> future;
         byte[] bytes = answer.getBytes();
@@ -204,11 +196,14 @@ public class AiBridge {
 
             try {
                 filename = aiWorker.generateFilename(answer).get();
-            } catch (InterruptedException | ExecutionException e) {
+
+                Path tmpFile = Files.createTempFile(Path.of("/","tmp","/"), "knst_ai_response_",".txt");
+                Files.write(tmpFile, bytes);
+
+                future = sendFileAndLinkContext(tmpFile.toFile(), filename, aiMessage, replyTo);
+            } catch (InterruptedException | ExecutionException | IOException e) {
                 throw new RuntimeException(e);
             }
-
-            future = sendFileAndLinkContext(bytes, filename, aiMessage, replyTo);
         }else {
             MessageBuilder messageBuilder = MessageBuilder.create(answer.isBlank() ? "(AI is silent)" : answer);
 

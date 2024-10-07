@@ -6,24 +6,20 @@ import com.ezylang.evalex.Expression;
 import com.ezylang.evalex.parser.ParseException;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import com.pengrad.telegrambot.model.reaction.ReactionTypeEmoji;
-import com.pengrad.telegrambot.request.SetMessageReaction;
-import com.pengrad.telegrambot.response.BaseResponse;
 import io.github.stefanbratanov.jvm.openai.Function;
 import io.github.stefanbratanov.jvm.openai.Images;
 import io.github.stefanbratanov.jvm.openai.Tool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
 import su.knst.telegram.ai.managers.AiContextManager;
 import su.knst.telegram.ai.managers.AiMessagesManager;
-import su.knst.telegram.ai.utils.*;
 import su.knst.telegram.ai.utils.functions.*;
-import su.knst.telegram.ai.utils.parsers.HtmlParser;
+import su.knst.telegram.ai.utils.parsers.Markdown2DocxConverter;
+import su.knst.telegram.ai.utils.parsers.TextConverters;
 
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 @Singleton
 public class AiTools {
@@ -110,7 +106,7 @@ public class AiTools {
                     String url = args.get("url");
 
                     try {
-                        return new FunctionTextResult(HtmlParser.parse(FileDownloader.downloadFile(url).get()).orElseThrow());
+                        return new FunctionTextResult(TextConverters.parseHtml(FileDownloader.downloadFile(url).get()).orElseThrow());
                     } catch (Exception e) {
                         return new FunctionError("Fail to read");
                     }
@@ -118,7 +114,7 @@ public class AiTools {
                 Parameter.of("url", "string", "Url to read", true)
         );
 
-        function("imagine", "Use this function to imagine and send photo to user using DALL·E 3",
+        function("imagine", "Use this function to imagine and send photo to user using DALL·E 3. Do NOT share result link",
                 (chatId, contextId, args) -> {
                     String prompt = args.get("prompt");
                     String size = args.get("size");
@@ -138,10 +134,26 @@ public class AiTools {
         );
 
         function("send_file", "Use this function to send file to user",
-                (chatId, contextId, args) -> new FunctionFileResult(args.get("content"), args.get("filename")),
+                (chatId, contextId, args) -> FunctionFileResult.fromString(args.get("content"), args.get("filename")),
                 Parameter.of("content", "string", "File's content", true),
                 Parameter.of("filename", "string", "Filename with extension", true)
         );
+
+        function("send_docx_file", "Use this function to send docx file to user",
+                (chatId, contextId, args) -> {
+                    String markdown = args.get("markdown");
+                    String filename = args.get("filename");
+
+                    Optional<File> result = Markdown2DocxConverter.convert(markdown);
+
+                    if (result.isEmpty())
+                        return new FunctionError("Failed to convert markdown");
+
+                    return new FunctionFileResult(result.get(), filename);
+                },
+                Parameter.of("markdown", "string", "File's text content in markdown", true),
+                Parameter.of("filename", "string", "Filename with extension", true)
+                );
     }
 
     protected void function(String name, String description, FunctionExecutor executor, Parameter... parameters) {
