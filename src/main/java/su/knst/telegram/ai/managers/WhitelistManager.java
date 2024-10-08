@@ -21,7 +21,6 @@ public class WhitelistManager {
     protected ChatsDatabase chatsDatabase;
 
     protected LoadingCache<Long, UserPermission> permissionsCache;
-    protected LoadingCache<Long, Boolean> adminsCache;
     protected LoadingCache<Long, Optional<ChatsRecord>> chatsCache;
 
     @Inject
@@ -47,10 +46,12 @@ public class WhitelistManager {
             return UserPermission.SUPER_ADMIN;
 
         try {
-            if (!chatsCache.get(id).map(ChatsRecord::getEnabled).orElse(false))
+            Optional<ChatsRecord> chat = chatsCache.get(id);
+
+            if (chat.isEmpty() || !chat.get().getEnabled())
                 return UserPermission.UNAUTHORIZED;
 
-            if (adminsCache.get(id))
+            if (chat.get().getIsAdmin())
                 return UserPermission.ADMIN;
 
             return UserPermission.WHITELISTED;
