@@ -323,7 +323,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
 
         addEditingButton("Edit Prompt",
                 "Editing Prompt of #" + record.getTag(),
-                "This parameter allows you to change the behavior of the AI\n\nOld prompt:" + record.getText(),
+                "This parameter allows you to change the behavior of the AI\n\nOld prompt: ```" + record.getText() + "```",
                 (s) -> {
                     if (s.isBlank())
                         throw new InvalidParameterException();

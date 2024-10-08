@@ -20,6 +20,8 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TextConverters {
     public static Optional<String> parsePdf(File file) {
@@ -98,5 +100,43 @@ public class TextConverters {
         }
 
         return Optional.of(markdown.toString());
+    }
+
+    public static String markdown2telegram(String markdown) {
+        // Convert bold
+        markdown = markdown.replaceAll("\\*\\*(.*?)\\*\\*", "*$1*");
+
+        // Convert italic
+        markdown = markdown.replaceAll("_(.*?)_", "_$1_");
+
+        // Convert underline
+        markdown = markdown.replaceAll("__(.*?)__", "__$1__");
+
+        // Convert strikethrough
+        markdown = markdown.replaceAll("~~(.*?)~~", "~$1~");
+
+        // Convert spoiler
+        markdown = markdown.replaceAll("\\|\\|(.*?)\\|\\|", "||$1||");
+
+        // Convert inline URL and mention
+        Pattern urlPattern = Pattern.compile("\\[(.*?)\\]\\((http[s]?:\\/\\/[^)]+)\\)");
+        Matcher urlMatcher = urlPattern.matcher(markdown);
+        while (urlMatcher.find()) {
+            String text = urlMatcher.group(1);
+            String url = urlMatcher.group(2);
+            String replacement = "[" + text + "](" + url + ")";
+            markdown = markdown.replace(urlMatcher.group(0), replacement);
+        }
+
+        Pattern mentionPattern = Pattern.compile("\\[(.*?)\\]\\((tg:\\/\\/user\\?id=([0-9]+))\\)");
+        Matcher mentionMatcher = mentionPattern.matcher(markdown);
+        while (mentionMatcher.find()) {
+            String text = mentionMatcher.group(1);
+            String userId = mentionMatcher.group(2);
+            String replacement = "[" + text + "](" + userId + ")";
+            markdown = markdown.replace(mentionMatcher.group(0), replacement);
+        }
+
+        return markdown;
     }
 }

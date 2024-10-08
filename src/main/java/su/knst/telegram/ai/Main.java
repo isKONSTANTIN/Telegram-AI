@@ -15,6 +15,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import static su.knst.telegram.ai.utils.parsers.TextConverters.markdown2telegram;
+
 public class Main {
     protected static Injector INJ;
     protected static Logger log;

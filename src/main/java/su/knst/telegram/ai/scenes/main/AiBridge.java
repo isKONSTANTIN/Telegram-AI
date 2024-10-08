@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutionException;
 
 import static su.knst.telegram.ai.utils.ContentPartParser.GSON;
 import static su.knst.telegram.ai.utils.ContentPartParser.contentToJson;
+import static su.knst.telegram.ai.utils.parsers.TextConverters.markdown2telegram;
 
 public class AiBridge {
     protected MainScene scene;
@@ -205,16 +206,23 @@ public class AiBridge {
                 throw new RuntimeException(e);
             }
         }else {
-            MessageBuilder messageBuilder = MessageBuilder.create(answer.isBlank() ? "(AI is silent)" : answer);
+            MessageBuilder messageBuilder = MessageBuilder.create(answer.isBlank() ? "(AI is silent)" : markdown2telegram(answer));
 
             if (contextMode == ContextMode.MULTI_REPLY)
                 messageBuilder.setReplyTo(replyTo);
 
-            messageBuilder.setParseMode(ParseMode.HTML);
-
             future = scene.getChatHandler().sendMessage(messageBuilder.build()).whenComplete((r, t) -> {
-                if (t != null || !r.isOk())
-                    return;
+                if (t != null || !r.isOk()) {
+
+                    try {
+                        Path tmpFile = Files.createTempFile(Path.of("/","tmp","/"), "knst_ai_response_",".txt");
+                        Files.write(tmpFile, bytes);
+
+                        sendFileAndLinkContext(tmpFile.toFile(), "failed_response.txt", aiMessage, replyTo).get();
+                    } catch (IOException | ExecutionException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
 
                 aiWorker.getMessagesManager().linkTelegramMessage(aiMessage.getId(), r.message().messageId());
                 scene.lastContext = aiMessage.getAiContext();
