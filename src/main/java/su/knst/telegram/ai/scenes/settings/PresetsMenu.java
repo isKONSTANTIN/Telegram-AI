@@ -81,7 +81,12 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
             return super.apply();
         }
 
-        setMessage(MessageBuilder.text("Presets"));
+        setMessage(MessageBuilder.text("""
+                🎨 Preset Selection Menu 🔧
+
+                Here, you can choose which preset you'd like to edit or configure. Each preset allows you to tailor the AI's behavior to match your specific needs.
+                Select a preset to modify its parameters, such as prompt style, response temperature, and other advanced settings.
+                """));
 
         List<AiPresetsRecord> records = aiWorker.getPresetsManager().getPresets(scene.getChatHandler().getChatId());
 
@@ -316,9 +321,9 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 ).isPresent()
         );
 
-        addEditingButton("Edit Text",
-                "Editing Text of #" + record.getTag(),
-                "This parameter allows you to change the behavior of the AI",
+        addEditingButton("Edit Prompt",
+                "Editing Prompt of #" + record.getTag(),
+                "This parameter allows you to change the behavior of the AI\n\nOld prompt:" + record.getText(),
                 (s) -> {
                     if (s.isBlank())
                         throw new InvalidParameterException();

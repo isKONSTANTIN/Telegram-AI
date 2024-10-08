@@ -11,7 +11,7 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.response.BaseResponse;
 import io.github.stefanbratanov.jvm.openai.Usage;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
-import su.knst.telegram.ai.jooq.tables.records.ChatsWhitelistRecord;
+import su.knst.telegram.ai.jooq.tables.records.ChatsRecord;
 import su.knst.telegram.ai.managers.AiModelsManager;
 import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.utils.menu.AskMenu;
@@ -56,6 +56,12 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
                     apply();
                 });
             }
+
+            askMenu.setResultFunction((s) -> {
+                apply();
+
+                return true;
+            });
 
             askMenu.apply();
         });
@@ -133,10 +139,10 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         builder.gap().gap();
 
         for (Pair<Long, Usage> pair : usage) {
-            Optional<ChatsWhitelistRecord> recordOptional = whitelistManager.getWhitelistRecord(pair.first());
+            Optional<ChatsRecord> recordOptional = whitelistManager.getWhitelistRecord(pair.first());
 
             if (recordOptional.isPresent()) {
-                ChatsWhitelistRecord record = recordOptional.get();
+                ChatsRecord record = recordOptional.get();
                 builder.bold().append(pair.first() + " - " + record.getDescription()).bold().gap();
             }else {
                 builder.bold().line(String.valueOf(pair.first())).bold();

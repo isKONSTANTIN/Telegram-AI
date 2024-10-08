@@ -13,7 +13,7 @@ import com.pengrad.telegrambot.model.message.origin.MessageOrigin;
 import com.pengrad.telegrambot.model.message.origin.MessageOriginUser;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.response.BaseResponse;
-import su.knst.telegram.ai.jooq.tables.records.ChatsWhitelistRecord;
+import su.knst.telegram.ai.jooq.tables.records.ChatsRecord;
 import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.utils.menu.AskMenu;
 import su.knst.telegram.ai.utils.menu.TypedAskMenu;
@@ -81,6 +81,11 @@ public class WhitelistMenu extends MessageMenu<FlexListButtonsLayout> {
                 remover.remove();
                 apply();
             }
+            case "Admin" -> {
+                whitelistManager.switchAdmin(id);
+                remover.remove();
+                apply();
+            }
             case "Edit" -> {
                 AskMenu askMenu = new AskMenu(scene);
 
@@ -106,23 +111,30 @@ public class WhitelistMenu extends MessageMenu<FlexListButtonsLayout> {
 
     @Override
     public CompletableFuture<? extends BaseResponse> apply() {
-        List<ChatsWhitelistRecord> records = whitelistManager.getWhitelist();
+        List<ChatsRecord> records = whitelistManager.getChats();
         String myUsername = me.username();
 
         MessageBuilder builder = MessageBuilder.create().bold().line("Chats and users whitelist").bold();
 
-        for (ChatsWhitelistRecord record : records) {
+        for (ChatsRecord record : records) {
             builder.gap()
-                    .append(String.valueOf(record.getId()))
+                    .fixedWidth().append(String.valueOf(record.getId())).fixedWidth()
                     .append(" - ")
                     .append(record.getDescription())
-                    .append("; ");
+                    .gap();
 
             String access = record.getEnabled() ? "Allowed" : "Denied";
             builder.url("tg://resolve?domain=" + myUsername + "&text=Switch " + record.getId(), access);
 
             builder.append("; ");
+
+            String isAdmin = record.getIsAdmin() ? "ADMIN" : "Not admin";
+
+            builder.url("tg://resolve?domain=" + myUsername + "&text=Admin " + record.getId(), isAdmin);
+
+            builder.append("; ");
             builder.url("tg://resolve?domain=" + myUsername + "&text=Edit " + record.getId(), "Edit description");
+            builder.gap().gap();
         }
 
         if (records.isEmpty())

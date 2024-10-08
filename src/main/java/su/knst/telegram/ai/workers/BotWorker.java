@@ -8,10 +8,7 @@ import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.GetMe;
 import com.pengrad.telegrambot.request.SetMyCommands;
 import com.pengrad.telegrambot.response.GetMeResponse;
-import su.knst.telegram.ai.commands.DeleteCommand;
-import su.knst.telegram.ai.commands.NewContextCommand;
-import su.knst.telegram.ai.commands.SettingsCommand;
-import su.knst.telegram.ai.commands.StartCommand;
+import su.knst.telegram.ai.commands.*;
 import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.handlers.ChatHandler;
@@ -58,10 +55,11 @@ public class BotWorker {
                         new DeleteCommand(),
                         new NewContextCommand(),
                         new SettingsCommand(),
-                        new StartCommand())
+                        new StartCommand(null),
+                        new AddPresetCommand(null, null))
                 .filter((c) -> !c.hidden())
                 .filter((c) -> !c.description().isBlank())
-                .map((c) -> new BotCommand(c.name(), c.description()))
+                .map((c) -> new BotCommand(c.name(), (c.commandArgsTips() != null ? c.commandArgsTips() + " " : "") + c.description()))
                 .toArray(BotCommand[]::new);
 
         botCore.execute(new SetMyCommands(commands)).whenComplete((r, t) -> {

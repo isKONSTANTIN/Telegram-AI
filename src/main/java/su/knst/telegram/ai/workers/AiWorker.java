@@ -1,6 +1,5 @@
 package su.knst.telegram.ai.workers;
 
-import app.finwave.scw.utils.gson.G;
 import app.finwave.tat.utils.Pair;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
@@ -11,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
-import su.knst.telegram.ai.database.ChatsWhitelistDatabase;
+import su.knst.telegram.ai.database.ChatsDatabase;
 import su.knst.telegram.ai.database.DatabaseWorker;
 import su.knst.telegram.ai.jooq.tables.records.AiContextsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
@@ -24,7 +23,6 @@ import su.knst.telegram.ai.managers.AiPresetsManager;
 import su.knst.telegram.ai.utils.ArrayDeserializer;
 import su.knst.telegram.ai.utils.ChatMessagesBuilder;
 import su.knst.telegram.ai.utils.ContentMeta;
-import su.knst.telegram.ai.utils.functions.FunctionImageResult;
 import su.knst.telegram.ai.utils.functions.FunctionResult;
 
 import java.util.*;
@@ -32,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static su.knst.telegram.ai.utils.ContentPartParser.*;
 
@@ -52,7 +49,7 @@ public class AiWorker {
     protected AiPresetsManager presetsManager;
     protected AiModelsManager modelsManager;
 
-    protected ChatsWhitelistDatabase chatsWhitelistDatabase;
+    protected ChatsDatabase chatsDatabase;
 
     protected List<OpenAI> servers;
 
@@ -69,7 +66,7 @@ public class AiWorker {
         this.presetsManager = presetsManager;
         this.modelsManager = modelsManager;
 
-        this.chatsWhitelistDatabase = databaseWorker.get(ChatsWhitelistDatabase.class);
+        this.chatsDatabase = databaseWorker.get(ChatsDatabase.class);
 
         this.servers = Arrays.stream(config.servers).map((s) -> {
             OpenAI.Builder builder = OpenAI.newBuilder();

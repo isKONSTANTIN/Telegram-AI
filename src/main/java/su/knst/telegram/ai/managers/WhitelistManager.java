@@ -4,10 +4,9 @@ import com.google.common.cache.LoadingCache;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import su.knst.telegram.ai.config.ConfigWorker;
-import su.knst.telegram.ai.database.AdminsDatabase;
-import su.knst.telegram.ai.database.ChatsWhitelistDatabase;
+import su.knst.telegram.ai.database.ChatsDatabase;
 import su.knst.telegram.ai.database.DatabaseWorker;
-import su.knst.telegram.ai.jooq.tables.records.ChatsWhitelistRecord;
+import su.knst.telegram.ai.jooq.tables.records.ChatsRecord;
 import su.knst.telegram.ai.utils.CacheHandyBuilder;
 import su.knst.telegram.ai.utils.UserPermission;
 
@@ -19,18 +18,16 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class WhitelistManager {
     protected long superAdmin;
-    protected ChatsWhitelistDatabase chatsWhitelistDatabase;
-    protected AdminsDatabase adminsDatabase;
+    protected ChatsDatabase chatsDatabase;
 
     protected LoadingCache<Long, UserPermission> permissionsCache;
     protected LoadingCache<Long, Boolean> adminsCache;
-    protected LoadingCache<Long, Optional<ChatsWhitelistRecord>> whitelistCache;
+    protected LoadingCache<Long, Optional<ChatsRecord>> chatsCache;
 
     @Inject
     public WhitelistManager(ConfigWorker configWorker, DatabaseWorker databaseWorker) {
         this.superAdmin = configWorker.telegram.superAdminId;
-        this.chatsWhitelistDatabase = databaseWorker.get(ChatsWhitelistDatabase.class);
-        this.adminsDatabase = databaseWorker.get(AdminsDatabase.class);
+        this.chatsDatabase = databaseWorker.get(ChatsDatabase.class);
 
         this.permissionsCache = CacheHandyBuilder.loading(
                 1, TimeUnit.DAYS,
@@ -38,16 +35,10 @@ public class WhitelistManager {
                 this::permission
         );
 
-        this.adminsCache = CacheHandyBuilder.loading(
+        this.chatsCache = CacheHandyBuilder.loading(
                 1, TimeUnit.DAYS,
                 500,
-                adminsDatabase::chatIsAdmin
-        );
-
-        this.whitelistCache = CacheHandyBuilder.loading(
-                1, TimeUnit.DAYS,
-                500,
-                chatsWhitelistDatabase::getRecord
+                chatsDatabase::getRecord
         );
     }
 
@@ -56,7 +47,7 @@ public class WhitelistManager {
             return UserPermission.SUPER_ADMIN;
 
         try {
-            if (!whitelistCache.get(id).map(ChatsWhitelistRecord::getEnabled).orElse(false))
+            if (!chatsCache.get(id).map(ChatsRecord::getEnabled).orElse(false))
                 return UserPermission.UNAUTHORIZED;
 
             if (adminsCache.get(id))
@@ -70,9 +61,9 @@ public class WhitelistManager {
         return UserPermission.UNAUTHORIZED;
     }
 
-    public Optional<ChatsWhitelistRecord> getWhitelistRecord(long id) {
+    public Optional<ChatsRecord> getWhitelistRecord(long id) {
         try {
-            return whitelistCache.get(id);
+            return chatsCache.get(id);
         } catch (ExecutionException e) {
             e.printStackTrace();
         }
@@ -82,7 +73,7 @@ public class WhitelistManager {
 
     public boolean inWhitelist(long id) {
         try {
-            return whitelistCache.get(id).isPresent();
+            return chatsCache.get(id).isPresent();
         } catch (ExecutionException e) {
             e.printStackTrace();
         }
@@ -101,53 +92,46 @@ public class WhitelistManager {
     }
 
     public void addToWhitelist(long id) {
-        Optional<ChatsWhitelistRecord> record = chatsWhitelistDatabase.add(id);
+        Optional<ChatsRecord> record = chatsDatabase.add(id);
 
-        whitelistCache.put(id, record);
+        chatsCache.put(id, record);
         permissionsCache.invalidate(id);
     }
 
     public void switchFromWhitelist(long id, boolean enabled) {
-        Optional<ChatsWhitelistRecord> record = chatsWhitelistDatabase.switchAccess(id, enabled);
+        Optional<ChatsRecord> record = chatsDatabase.switchAccess(id, enabled);
 
-        whitelistCache.put(id, record);
+        chatsCache.put(id, record);
         permissionsCache.invalidate(id);
     }
 
     public void editDescription(long id, String description) {
-        Optional<ChatsWhitelistRecord> record = chatsWhitelistDatabase.editDescription(id, description);
+        Optional<ChatsRecord> record = chatsDatabase.editDescription(id, description);
 
-        whitelistCache.put(id, record);
+        chatsCache.put(id, record);
         permissionsCache.invalidate(id);
     }
 
     public void switchFromWhitelist(long id) {
-        Optional<ChatsWhitelistRecord> record = chatsWhitelistDatabase.switchAccess(id);
+        Optional<ChatsRecord> record = chatsDatabase.switchAccess(id);
 
-        whitelistCache.put(id, record);
+        chatsCache.put(id, record);
         permissionsCache.invalidate(id);
     }
 
-    public void addToAdmins(long id) {
-        adminsDatabase.addAdmin(id);
+    public void switchAdmin(long id) {
+        Optional<ChatsRecord> record =  chatsDatabase.switchAdmin(id);
 
-        adminsCache.put(id, true);
+        chatsCache.put(id, record);
         permissionsCache.invalidate(id);
     }
 
-    public void switchAdmin(long id, boolean enabled) {
-        adminsDatabase.switchAdmin(id, enabled);
-
-        adminsCache.put(id, enabled);
-        permissionsCache.invalidate(id);
-    }
-
-    public List<ChatsWhitelistRecord> getWhitelist() {
-        List<ChatsWhitelistRecord> result = chatsWhitelistDatabase.getList();
-        whitelistCache.cleanUp();
+    public List<ChatsRecord> getChats() {
+        List<ChatsRecord> result = chatsDatabase.getList();
+        chatsCache.cleanUp();
         permissionsCache.invalidateAll();
 
-        result.forEach((r) -> whitelistCache.put(r.getId(), Optional.of(r)));
+        result.forEach((r) -> chatsCache.put(r.getId(), Optional.of(r)));
 
         return result;
     }

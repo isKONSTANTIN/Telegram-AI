@@ -125,6 +125,7 @@ public class AiTools {
                     try {
                         return new FunctionImageResult(futureImage.get().data().get(0).url());
                     }catch (Exception e) {
+                        e.printStackTrace();
                         return new FunctionError("Fail to imagine");
                     }
                 },
@@ -133,13 +134,13 @@ public class AiTools {
                 Parameter.of("hd", "boolean", "Specify true if you need to generate an image at the maximum resolution", false)
         );
 
-        function("send_file", "Use this function to send file to user",
+        function("send_file", "Use this function to send file to user. Do NOT share result link",
                 (chatId, contextId, args) -> FunctionFileResult.fromString(args.get("content"), args.get("filename")),
                 Parameter.of("content", "string", "File's content", true),
                 Parameter.of("filename", "string", "Filename with extension", true)
         );
 
-        function("send_docx_file", "Use this function to send docx file to user",
+        function("send_docx_file", "Use this function to send docx file to user. Do NOT share result link for downloading",
                 (chatId, contextId, args) -> {
                     String markdown = args.get("markdown");
                     String filename = args.get("filename");

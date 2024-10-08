@@ -18,7 +18,7 @@ import java.util.concurrent.ExecutionException;
 
 public class SettingsScene extends BaseScene<Object> {
     protected MessageMenu<FlexListButtonsLayout> mainMenu;
-    protected MessageMenu<FlexListButtonsLayout> presetsMenu;
+    protected PresetsMenu presetsMenu;
 
     protected AiWorker aiWorker;
     protected ChatPreferencesManager preferencesManager;
@@ -45,7 +45,18 @@ public class SettingsScene extends BaseScene<Object> {
 
         MessageBuilder builder = MessageBuilder.create();
 
-        builder.bold().line("Settings Menu").bold().gap();
+        builder.bold().line("\uD83D\uDEE0 Settings Menu ⚙\uFE0F").bold().gap();
+
+        builder.line("""
+                Here, you can optimize how you interact with your AI Assistant. Let's look at what you can configure:
+
+                🔄 Context Mode Switching:
+                - Single Mode: Perfect for continuous conversations. The bot keeps track of the context without needing you to reply specifically to each message.
+                - Multi Mode: Ideal when you want to maintain clarity in context. Reply directly to messages to ensure the AI understands exactly what you're referring to.
+
+                🎨 Preset Configuration:
+                Dive into your preset settings to fine-tune your AI interactions. Customize prompt style, response behavior, and more for a truly personalized experience.
+                """).gap();
 
         builder.line("Context Mode: " + (contextMode == ContextMode.MULTI_REPLY ? "Multi" : "Single"));
 

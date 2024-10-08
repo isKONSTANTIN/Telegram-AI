@@ -12,6 +12,12 @@ import com.pengrad.telegrambot.response.GetChatMemberResponse;
 import java.util.concurrent.ExecutionException;
 
 public class StartCommand extends AbstractCommand {
+    protected String startMessage;
+
+    public StartCommand(String startMessage) {
+        this.startMessage = startMessage;
+    }
+
     @Override
     public String name() {
         return "start";
@@ -46,7 +52,8 @@ public class StartCommand extends AbstractCommand {
                 return;
         }
 
-        chatHandler.sendMessage(MessageBuilder.text("Welcome")).whenComplete((r, t) -> {
+        chatHandler.sendMessage(MessageBuilder.text(startMessage)).whenComplete((r, t) -> {
+            t.printStackTrace();
             chatHandler.deleteMessage(newMessageEvent.data.messageId());
         });
 

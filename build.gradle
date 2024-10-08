@@ -23,7 +23,7 @@ repositories {
 dependencies {
     implementation 'com.ezylang:EvalEx:3.3.0'
 
-    implementation 'app.finwave.tat:telegram-abstractions-tools:3.2.5'
+    implementation 'app.finwave.tat:telegram-abstractions-tools:3.2.6'
     implementation 'app.finwave.scw:finwave-scw:0.4.1'
 
     implementation 'com.github.pengrad:java-telegram-bot-api:7.9.1'
