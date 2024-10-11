@@ -55,6 +55,15 @@ public class AiContextsDatabase extends AbstractDatabase {
                 .isPresent();
     }
 
+    public List<AiContextsRecord> replacePreset(long oldPresetId, long presetId) {
+        return context.update(AI_CONTEXTS)
+                .set(AI_CONTEXTS.LAST_PRESET_ID, presetId)
+                .where(AI_CONTEXTS.LAST_PRESET_ID.eq(oldPresetId))
+                .returningResult(AI_CONTEXTS)
+                .fetch()
+                .map(Record1::component1);
+    }
+
     public void delete(long contextId) {
         context.delete(AI_CONTEXTS)
                 .where(AI_CONTEXTS.ID.eq(contextId))

@@ -92,8 +92,17 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
 
         for (AiPresetsRecord record : records) {
             boolean isDefault = preferences.getDefaultPreset().equals(record.getId());
+            boolean modelIsEnabled = aiWorker.getModelsManager().getModel(record.getModel()).orElseThrow().getEnabled();
 
-            layout.addButton(new InlineKeyboardButton("#" + record.getTag() + (isDefault ? " " + EmojiList.STAR : "")), (e) -> {
+            String title = "#" + record.getTag();
+
+            if (isDefault)
+                title += " " + EmojiList.STAR;
+
+            if (!modelIsEnabled)
+                title += " " + EmojiList.WARNING;
+
+            layout.addButton(new InlineKeyboardButton(title), (e) -> {
                 selectedPresetId = record.getId();
                 apply();
             });
@@ -156,7 +165,8 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 .findFirst()
                 .orElseThrow();
 
-        boolean isDefault = preferences.getDefaultPreset().equals(record.getId());
+        long defaultPreset = preferences.getDefaultPreset();
+        boolean isDefault = defaultPreset == record.getId();
 
         AiModelsRecord model = aiWorker.getModelsManager().getModel(record.getModel()).orElseThrow();
 
@@ -178,7 +188,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         builder.line(" - Model:");
         builder.line("      - Name: " + model.getName() + " (" + model.getModel() + ", " + server.name + ")");
         builder.line("      - Tools: " + toolsString);
-        builder.line("      - Enabled: " + (model.getEnabled()? "Yes" : "No"));
+        builder.line("      - Enabled: " + (model.getEnabled() ? "Yes" : "No " + EmojiList.WARNING));
         builder.line(" - Temperature: " + record.getTemperature());
         builder.line(" - Top P: " + record.getTopP());
         builder.line(" - Frequency Penalty: " + record.getFrequencyPenalty());
@@ -200,7 +210,10 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         layout.addButton(new InlineKeyboardButton("Edit Model"), 1, (e) -> {
             AskMenu askMenu = new AskMenu(scene);
 
-            models.forEach((m) -> askMenu.addAnswer(m.getName(), String.valueOf(m.getId())));
+            models.forEach((m) -> {
+                if (m.getEnabled())
+                    askMenu.addAnswer(m.getName(), String.valueOf(m.getId()));
+            });
 
             askMenu.setText("Editing Model of #" + record.getTag(), "")
                     .setResultFunction((s) -> {
@@ -362,6 +375,31 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                         t
                 ).isPresent()
         );
+
+        if (!isDefault) {
+            layout.addButton(new InlineKeyboardButton("Remove " + EmojiList.CANCEL), 2, (e) -> {
+                AskMenu askMenu = new AskMenu(scene);
+
+                askMenu.addAnswer("I'm sure", "sure");
+
+                askMenu.setText("Remove #" + record.getTag() + "?", "")
+                        .setResultFunction((s) -> {
+                            if (s == null || !s.equals("sure")) {
+                                apply();
+
+                                return true;
+                            }
+
+                            aiWorker.deletePreset(record.getId(), defaultPreset);
+
+                            selectedPresetId = -1;
+                            apply();
+
+                            return true;
+                        })
+                        .apply();
+            });
+        }
 
         layout.addButton(new InlineKeyboardButton("Back"), 2, (e) -> {
             selectedPresetId = -1;

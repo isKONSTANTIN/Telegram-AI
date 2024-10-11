@@ -82,6 +82,21 @@ public class AiPresetsManager {
         return edited;
     }
 
+    public Optional<AiPresetsRecord> deletePreset(long presetId) {
+        Optional<AiPresetsRecord> deleted = presetsDatabase.deletePreset(presetId);
+
+        if (deleted.isEmpty())
+            return Optional.empty();
+
+        presetsCache.invalidate(presetId);
+        ArrayList<AiPresetsRecord> cacheRecords = chatPresetsCache.getIfPresent(deleted.get().getChatId());
+
+        if (cacheRecords != null)
+            cacheRecords.removeIf((cached) -> cached.getId() == presetId);
+
+        return deleted;
+    }
+
     public Optional<AiPresetsRecord> getPreset(long presetId) {
         try {
             return presetsCache.get(presetId);

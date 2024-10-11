@@ -68,11 +68,16 @@ public class MainScene extends BaseScene<NewMessageEvent> {
         chatHandler.setActionUntil(future, ChatAction.typing);
 
         future.whenComplete((r, t) -> {
-            if (t == null)
-                return;
+            if (t != null) {
+                t.printStackTrace();
+                chatHandler.sendMessage(MessageBuilder.text("Error"));
 
-            chatHandler.sendMessage(MessageBuilder.text("Error"));
-            t.printStackTrace();
+                return;
+            }
+
+            if (!r) {
+                chatHandler.sendMessage(MessageBuilder.text("Ask request denied: check settings"));
+            }
         });
     }
 

@@ -151,6 +151,12 @@ public class AiWorker {
         return result;
     }
 
+    public Optional<AiPresetsRecord> deletePreset(long presetId, long replacePresetId) {
+        contextManager.replacePreset(presetId, replacePresetId);
+
+        return presetsManager.deletePreset(presetId);
+    }
+
     protected List<ToolCall> checkUndoneRequests(List<AiMessagesRecord> messages) {
         AiMessagesRecord lastMessage = messages.get(messages.size() - 1);
 
@@ -230,6 +236,12 @@ public class AiWorker {
         AiContextsRecord contextRecord = contextManager.getContext(contextId).orElseThrow();
         AiPresetsRecord preset = presetsManager.getPreset(contextRecord.getLastPresetId()).orElseThrow();
         AiModelsRecord modelsRecord = modelsManager.getModel(preset.getModel()).orElseThrow();
+
+        if (!modelsRecord.getEnabled()) {
+            result.complete(false);
+
+            return result;
+        }
 
         log.debug("AI asking in #{} context for chat #{}", contextId, chatId);
 

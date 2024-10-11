@@ -17,6 +17,7 @@ import su.knst.telegram.ai.utils.menu.TypedAskMenu;
 import su.knst.telegram.ai.workers.AiTools;
 import su.knst.telegram.ai.workers.AiWorker;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -50,7 +51,31 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
         builder.gap().line(model.getName());
         builder.line(" - Model: " + model.getModel())
                 .line(" - Server: " + server.name + " (#" + (model.getServer() + 1) + ")")
-                .line(" - Tools: " + toolsString);
+                .line(" - Tools: " + toolsString)
+                .line(" - Costs: ")
+                .line("     - Completion: $" + model.getCompletionTokensCost() + " / 1M tokens")
+                .line("     - Prompt: $" + model.getPromptTokensCost() + " / 1M tokens")
+                .line(" - Enabled: " + (model.getEnabled() ? "Yes" : "No"));
+
+        layout.addButton(new InlineKeyboardButton("Edit Model"), 2, (e) -> {
+            AskMenu askMenu = new AskMenu(scene);
+            askMenu.setText("Editing model's model", "Enter new model");
+
+            askMenu.setResultFunction((r) -> {
+                if (r == null) {
+                    selected(model.getId());
+
+                    return true;
+                }
+
+                modelsManager.editModel(modelId, model.getServer(), model.getName(), r, model.getIncludedTools());
+                selected(model.getId());
+
+                return true;
+            });
+
+            askMenu.apply();
+        });
 
         layout.addButton(new InlineKeyboardButton("Edit Name"), (e) -> {
             AskMenu askMenu = new AskMenu(scene);
@@ -95,26 +120,6 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
 
                 return true;
             }, Integer::parseInt);
-
-            askMenu.apply();
-        });
-
-        layout.addButton(new InlineKeyboardButton("Edit Model"), 2, (e) -> {
-            AskMenu askMenu = new AskMenu(scene);
-            askMenu.setText("Editing model's model", "Enter new model");
-
-            askMenu.setResultFunction((r) -> {
-                if (r == null) {
-                    selected(model.getId());
-
-                    return true;
-                }
-
-                modelsManager.editModel(modelId, model.getServer(), model.getName(), r, model.getIncludedTools());
-                selected(model.getId());
-
-                return true;
-            });
 
             askMenu.apply();
         });
@@ -181,6 +186,60 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
             askMenu.apply();
         });
 
+        layout.addButton(new InlineKeyboardButton("Edit Costs"), (e) -> {
+            var result = new Object() {
+                BigDecimal completion;
+                BigDecimal prompt;
+            };
+
+            AskMenu askCompletionMenu = new AskMenu(scene);
+            askCompletionMenu.setText("Set completion cost", "Enter completion cost per 1M tokens");
+
+            AskMenu askPromptMenu = new AskMenu(scene);
+            askPromptMenu.setText("Set prompt cost", "Enter prompt cost per 1M tokens");
+
+            askCompletionMenu.setResultFunction((r) -> {
+                if (r == null) {
+                    selected(model.getId());
+                    return true;
+                }
+
+                try {
+                    result.completion = new BigDecimal(r);
+                }catch (NumberFormatException ignored) {
+                    return false;
+                }
+
+                askPromptMenu.apply();
+
+                return true;
+            });
+
+            askPromptMenu.setResultFunction((r) -> {
+                if (r == null) {
+                    selected(model.getId());
+                    return true;
+                }
+
+                try {
+                    result.prompt = new BigDecimal(r);
+                }catch (NumberFormatException ignored) {
+                    return false;
+                }
+
+                modelsManager.editCosts(modelId, result.completion, result.prompt);
+                selected(model.getId());
+
+                return true;
+            });
+
+            askCompletionMenu.apply();
+        });
+
+        layout.addButton(new InlineKeyboardButton("Switch"), (e) -> {
+            modelsManager.switchModel(modelId);
+            selected(model.getId());
+        });
 
         layout.addButton(new InlineKeyboardButton("Back"), 2, (e) -> applyMain());
 

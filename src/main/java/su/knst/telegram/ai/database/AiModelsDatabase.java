@@ -7,6 +7,7 @@ import org.jooq.Record1;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsUsageRecord;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -30,9 +31,9 @@ public class AiModelsDatabase extends AbstractDatabase {
         return context.selectFrom(AI_MODELS).fetch();
     }
 
-    public void switchModel(int modelId, boolean enabled) {
+    public void switchModel(int modelId) {
         context.update(AI_MODELS)
-                .set(AI_MODELS.ENABLED, enabled)
+                .set(AI_MODELS.ENABLED, not(AI_MODELS.ENABLED))
                 .where(AI_MODELS.ID.eq(modelId))
                 .execute();
     }
@@ -56,6 +57,16 @@ public class AiModelsDatabase extends AbstractDatabase {
                 .set(AI_MODELS.MODEL, model)
                 .set(AI_MODELS.INCLUDED_TOOLS, tools)
                 .set(AI_MODELS.ENABLED, true)
+                .where(AI_MODELS.ID.eq(modelId))
+                .returningResult(AI_MODELS)
+                .fetchOptional()
+                .map(Record1::component1);
+    }
+
+    public Optional<AiModelsRecord> editCosts(int modelId, BigDecimal completion, BigDecimal prompt) {
+        return context.update(AI_MODELS)
+                .set(AI_MODELS.COMPLETION_TOKENS_COST, completion)
+                .set(AI_MODELS.PROMPT_TOKENS_COST, prompt)
                 .where(AI_MODELS.ID.eq(modelId))
                 .returningResult(AI_MODELS)
                 .fetchOptional()

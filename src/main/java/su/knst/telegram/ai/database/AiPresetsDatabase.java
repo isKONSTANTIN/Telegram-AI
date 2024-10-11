@@ -53,10 +53,12 @@ public class AiPresetsDatabase extends AbstractDatabase {
                 .fetchOptional();
     }
 
-    public void deletePreset(long presetId) {
-        context.deleteFrom(AI_PRESETS)
+    public Optional<AiPresetsRecord> deletePreset(long presetId) {
+        return context.deleteFrom(AI_PRESETS)
                 .where(AI_PRESETS.ID.eq(presetId))
-                .execute();
+                .returningResult(AI_PRESETS)
+                .fetchOptional()
+                .map(Record1::component1);
     }
 
     public List<AiPresetsRecord> getList(long chatId) {

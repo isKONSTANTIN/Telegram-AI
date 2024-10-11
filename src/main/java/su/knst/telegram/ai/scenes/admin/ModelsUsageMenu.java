@@ -16,6 +16,8 @@ import su.knst.telegram.ai.managers.AiModelsManager;
 import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.utils.menu.AskMenu;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 
 public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
     protected int modelId = -1;
+    protected AiModelsRecord modelRecord;
     protected LocalDate date;
 
     protected List<AiModelsRecord> models;
@@ -41,7 +44,7 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         this.whitelistManager = whitelistManager;
 
         layout.addButton(new InlineKeyboardButton("<"), (e) -> {
-            fetchUsage(date.minusMonths(1), modelId);
+            fetchUsage(date.minusMonths(1), modelRecord);
             apply();
         });
 
@@ -52,7 +55,7 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
 
             for (AiModelsRecord record : models) {
                 askMenu.addAnswer(new InlineKeyboardButton(record.getName()), (event) -> {
-                    fetchUsage(date, record.getId());
+                    fetchUsage(date, record);
                     apply();
                 });
             }
@@ -67,7 +70,7 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         });
 
         layout.addButton(new InlineKeyboardButton(">"), (e) -> {
-            fetchUsage(date.plusMonths(1), modelId);
+            fetchUsage(date.plusMonths(1), modelRecord);
             apply();
         });
 
@@ -79,14 +82,15 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         layout.addButton(new InlineKeyboardButton("Back"), 4, backListener);
     }
 
-    protected void fetchUsage(LocalDate date, int modelId) {
+    protected void fetchUsage(LocalDate date, AiModelsRecord model) {
         date = date.withDayOfMonth(1);
 
-        if (date.equals(this.date) && modelId == this.modelId)
+        if (date.equals(this.date) && model.getId() == this.modelId)
             return;
 
         this.date = date;
-        this.modelId = modelId;
+        this.modelId = model.getId();
+        this.modelRecord = model;
 
         fetchUsage();
     }
@@ -127,7 +131,7 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         if (modelId == -1) {
             models = modelsManager.getModels();
 
-            fetchUsage(LocalDate.now(), models.get(0).getId());
+            fetchUsage(LocalDate.now(), models.get(0));
         }
 
         MessageBuilder builder = MessageBuilder.create();
@@ -141,24 +145,34 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         for (Pair<Long, Usage> pair : usage) {
             Optional<ChatsRecord> recordOptional = whitelistManager.getWhitelistRecord(pair.first());
 
+            Usage chatUsage = pair.second();
+
+            BigDecimal completionCost = modelRecord.getCompletionTokensCost()
+                    .multiply(new BigDecimal(chatUsage.completionTokens()))
+                    .divide(new BigDecimal("1000000"), 2, RoundingMode.HALF_UP);
+
+            BigDecimal promptCost = modelRecord.getPromptTokensCost()
+                    .multiply(new BigDecimal(chatUsage.promptTokens()))
+                    .divide(new BigDecimal("1000000"), 2, RoundingMode.HALF_UP);
+
+            BigDecimal total = completionCost.add(promptCost);
+
             if (recordOptional.isPresent()) {
                 ChatsRecord record = recordOptional.get();
-                builder.bold().append(pair.first() + " - " + record.getDescription()).bold().gap();
+                builder.bold().append(pair.first() + " - " + record.getDescription() + ", $" + total).bold().gap();
             }else {
-                builder.bold().line(String.valueOf(pair.first())).bold();
+                builder.bold().line(pair.first() + ", $" + total).bold();
             }
-
-            Usage chatUsage = pair.second();
 
             builder.fixedWidth().append("Completion: ").fixedWidth();
             float percent = (float) chatUsage.completionTokens() / totalUsage.completionTokens();
             appendBar(builder, percent, 15);
-            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + chatUsage.completionTokens()).gap();
+            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + chatUsage.completionTokens() + ", $" + completionCost).gap();
 
             builder.fixedWidth().append("Prompt:     ").fixedWidth();
             percent = (float) chatUsage.promptTokens() / totalUsage.promptTokens();
             appendBar(builder, percent, 15);
-            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + chatUsage.promptTokens())
+            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + chatUsage.promptTokens() + ", $" + promptCost)
                     .gap().gap();
         }
 

@@ -12,6 +12,7 @@ import su.knst.telegram.ai.database.AiModelsDatabase;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
 import su.knst.telegram.ai.utils.CacheHandyBuilder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -59,8 +60,8 @@ public class AiModelsManager {
         return result;
     }
 
-    public void switchModel(int modelId, boolean enabled) {
-        database.switchModel(modelId, enabled);
+    public void switchModel(int modelId) {
+        database.switchModel(modelId);
         allowedModelsCache.invalidate(modelId);
     }
 
@@ -76,6 +77,15 @@ public class AiModelsManager {
 
     public Optional<AiModelsRecord> editModel(int modelId, short server, String name, String model, String[] tools) {
         Optional<AiModelsRecord> result = database.editModel(modelId, server, name, model, tools);
+
+        if (result.isPresent())
+            allowedModelsCache.put(result.get().component1(), result);
+
+        return result;
+    }
+
+    public Optional<AiModelsRecord> editCosts(int modelId, BigDecimal completion, BigDecimal prompt) {
+        Optional<AiModelsRecord> result = database.editCosts(modelId, completion, prompt);
 
         if (result.isPresent())
             allowedModelsCache.put(result.get().component1(), result);

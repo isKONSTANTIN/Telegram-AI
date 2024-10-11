@@ -62,6 +62,14 @@ public class AiContextManager {
         return result;
     }
 
+    public List<AiContextsRecord> replacePreset(long oldPresetId, long presetId) {
+        List<AiContextsRecord> result = contextsDatabase.replacePreset(oldPresetId, presetId);
+
+        result.forEach((r) -> contextsCache.put(r.getId(), Optional.of(r)));
+
+        return result;
+    }
+
     public boolean chatOwnContext(long chatId, long contextId) {
         try {
             return contextsCache.get(contextId).map(AiContextsRecord::getChatId).orElse(-1L).equals(chatId);
