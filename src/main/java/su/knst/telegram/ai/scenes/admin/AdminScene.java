@@ -65,6 +65,7 @@ public class AdminScene extends BaseScene<Object> {
         });
 
         menu.getLayout().addButton(new InlineKeyboardButton("Models Usage"), (e) -> {
+            modelsUsageMenu.refresh();
             modelsUsageMenu.apply();
         });
 

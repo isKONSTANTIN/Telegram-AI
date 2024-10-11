@@ -126,6 +126,11 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         builder.append("║");
     }
 
+    public void refresh() {
+        modelId = -1;
+        models = modelsManager.getModels();
+    }
+
     @Override
     public CompletableFuture<? extends BaseResponse> apply() {
         if (modelId == -1) {
