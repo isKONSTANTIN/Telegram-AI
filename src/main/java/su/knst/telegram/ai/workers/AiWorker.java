@@ -23,6 +23,7 @@ import su.knst.telegram.ai.managers.AiPresetsManager;
 import su.knst.telegram.ai.utils.ArrayDeserializer;
 import su.knst.telegram.ai.utils.ChatMessagesBuilder;
 import su.knst.telegram.ai.utils.ContentMeta;
+import su.knst.telegram.ai.utils.functions.FunctionError;
 import su.knst.telegram.ai.utils.functions.FunctionResult;
 
 import java.util.*;
@@ -188,7 +189,13 @@ public class AiWorker {
                 .create();
 
         String name = functionCall.function().name();
-        Map<String, String> args = g.fromJson(functionCall.function().arguments(), new TypeToken<Map<String, String>>(){}.getType());
+        Map<String, String> args;
+
+        try {
+            args = g.fromJson(functionCall.function().arguments(), new TypeToken<Map<String, String>>(){}.getType());
+        }catch (Exception e) {
+            return new FunctionError("Function call failed: invalid arguments json");
+        }
 
         return aiTools.run(name, chatId, contextId, args);
     }
@@ -196,10 +203,17 @@ public class AiWorker {
     protected boolean runTools(List<ToolCall> calls, long contextId, long chatId, Consumer<ContextUpdate> updatesConsumer) {
         List<ContextUpdate> updates = calls.stream()
                 .filter(c -> c instanceof ToolCall.FunctionToolCall)
-                .map((c) -> Pair.of(
-                        runTool((ToolCall.FunctionToolCall) c, contextId, chatId),
-                        c.id()
-                ))
+                .map((c) -> {
+                    FunctionResult result;
+
+                    try {
+                        result = runTool((ToolCall.FunctionToolCall) c, contextId, chatId);
+                    }catch (Exception e) {
+                        result = new FunctionError("Function call failed: unknown error");
+                    }
+
+                    return Pair.of(result, c.id());
+                })
                 .map(r -> new ContextUpdate(contextId, chatId, null, r.first(), r.second()))
                 .toList();
 
