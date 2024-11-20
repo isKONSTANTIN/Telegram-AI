@@ -10,6 +10,7 @@ import com.pengrad.telegrambot.model.request.ChatAction;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.SendDocument;
 import com.pengrad.telegrambot.request.SendPhoto;
+import io.github.stefanbratanov.jvm.openai.OpenAIException;
 import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
 import su.knst.telegram.ai.managers.ChatPreferencesManager;
@@ -70,7 +71,12 @@ public class MainScene extends BaseScene<NewMessageEvent> {
         future.whenComplete((r, t) -> {
             if (t != null) {
                 t.printStackTrace();
-                chatHandler.sendMessage(MessageBuilder.text("Error"));
+
+                if (t instanceof OpenAIException aiException) {
+                    chatHandler.sendMessage(MessageBuilder.create("Error: " + aiException.errorMessage() + ", code: " + aiException.statusCode()).setParseMode(ParseMode.HTML).build());
+                }else {
+                    chatHandler.sendMessage(MessageBuilder.text("Error"));
+                }
 
                 return;
             }
