@@ -5,6 +5,7 @@ import app.finwave.tat.event.chat.MessageReactionEvent;
 import app.finwave.tat.event.chat.NewMessageEvent;
 import app.finwave.tat.utils.MessageBuilder;
 import app.finwave.tat.utils.Pair;
+import com.google.common.cache.LoadingCache;
 import com.pengrad.telegrambot.model.*;
 import com.pengrad.telegrambot.model.message.origin.MessageOrigin;
 import com.pengrad.telegrambot.model.message.origin.MessageOriginChannel;
@@ -17,15 +18,19 @@ import su.knst.telegram.ai.jooq.tables.records.AiContextsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiPresetsRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
+import su.knst.telegram.ai.utils.CacheHandyBuilder;
 import su.knst.telegram.ai.utils.ContextMode;
 import su.knst.telegram.ai.utils.functions.FileDownloader;
 import su.knst.telegram.ai.utils.parsers.TextConverters;
 import su.knst.telegram.ai.workers.AiWorker;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class UserBridge {
@@ -34,6 +39,8 @@ public class UserBridge {
 
     protected AiWorker aiWorker;
     protected long chatId;
+
+    public HashMap<Long, ReentrantLock> contextsLocks = new HashMap<>();
 
     public UserBridge(MainScene scene, long chatId, AiWorker aiWorker) {
         this.scene = scene;
@@ -44,19 +51,30 @@ public class UserBridge {
         this.albumHandler = new AlbumHandler(this::newAlbum);
     }
 
+    protected ReentrantLock getLock(long contextId) {
+        return contextsLocks.computeIfAbsent(contextId, k -> new ReentrantLock());
+    }
+
     public void editedMessage(EditedMessageEvent event) {
         Optional<AiMessagesRecord> message = aiWorker.getMessagesManager().getFirstTelegramMessage(chatId, event.data.messageId());
 
         if (message.isEmpty())
             return;
 
-        List<AiMessagesRecord> deleted = aiWorker.getMessagesManager().deleteAllAfter(chatId, message.get().getId());
+        ReentrantLock lock = getLock(message.get().getAiContext());
+        lock.lock();
 
-        deleted.stream()
-                .filter(m -> m.getMessageId() != -1)
-                .filter(m -> m.getMessageId() != event.data.messageId().intValue())
-                .map(m -> m.getMessageId().intValue())
-                .forEach(scene.getChatHandler()::deleteMessage);
+        try {
+            List<AiMessagesRecord> deleted = aiWorker.getMessagesManager().deleteAllAfter(chatId, message.get().getId());
+
+            deleted.stream()
+                    .filter(m -> m.getMessageId() != -1)
+                    .filter(m -> m.getMessageId() != event.data.messageId().intValue())
+                    .map(m -> m.getMessageId().intValue())
+                    .forEach(scene.getChatHandler()::deleteMessage);
+        }finally {
+            lock.unlock();
+        }
 
         newMessage(event.data);
     }
@@ -88,37 +106,56 @@ public class UserBridge {
 
         text = needHandle.second();
 
-        Pair<AiContextsRecord, String> context = findOrInitContext(message, text);
-
+        AiContextsRecord context = findOrInitContext(message, text);
         if (context == null) {
             scene.getChatHandler().sendMessage(MessageBuilder.text("Fail to find and init context"));
 
             return;
         }
 
-        text = context.second();
-        scene.lastContext = context.first().getId();
+        ReentrantLock lock = getLock(context.getId());
+        lock.lock();
 
-        if (message.photo() != null) {
-            PhotoSize[] photos = message.photo();
+        try {
+            Pair<AiContextsRecord, String> updatedContext = updateContextPreset(text, context);
 
-            processPhoto(photos[photos.length - 1], message, scene.lastContext);
+            text = updatedContext.second();
+            scene.lastContext = updatedContext.first().getId();
+
+            if (message.photo() != null) {
+                PhotoSize[] photos = message.photo();
+
+                processPhoto(photos[photos.length - 1], message, scene.lastContext);
+            }
+
+            if (message.document() != null)
+                processDocument(message.document(), message, scene.lastContext);
+
+            if (text != null)
+                processText(text, message, scene.lastContext);
+        }finally {
+            lock.unlock();
         }
-
-        if (message.document() != null)
-            processDocument(message.document(), message, scene.lastContext);
-
-        if (text != null)
-            processText(text, message, scene.lastContext);
     }
 
-    protected Pair<AiContextsRecord, String> findOrInitContext(Message message, String text) {
-        Optional<AiContextsRecord> optionalContext = findContext(message);
-        AiContextsRecord context = null;
-
+    protected Pair<AiContextsRecord, String> updateContextPreset(String text, AiContextsRecord context) {
         Pair<Optional<String>, String> tagResult = findTag(text);
         Optional<String> tag = tagResult.first();
-        text = tagResult.second();
+
+        Optional<AiPresetsRecord> newPreset = tag.flatMap(this::getPreset);
+
+        if (newPreset.isPresent() && !context.getLastPresetId().equals(newPreset.get().getId())) {
+            context = aiWorker
+                    .updateContext(context.getId(), newPreset.get().getId())
+                    .orElseThrow();
+        }
+
+        return Pair.of(context, tagResult.second());
+    }
+
+    protected AiContextsRecord findOrInitContext(Message message, String text) {
+        Optional<AiContextsRecord> optionalContext = findContext(message);
+        AiContextsRecord context = null;
 
         if (optionalContext.isEmpty()) {
             List<AiPresetsRecord> presets = aiWorker.getPresetsManager().getPresets(chatId);
@@ -128,6 +165,9 @@ public class UserBridge {
 
                 return null;
             }
+
+            Pair<Optional<String>, String> tagResult = findTag(text);
+            Optional<String> tag = tagResult.first();
 
             AiPresetsRecord preset = tag.flatMap(this::getPreset)
                     .orElseGet(() ->
@@ -152,7 +192,7 @@ public class UserBridge {
                     processDocument(reply.document(), reply, context.getId());
 
                 if (reply.text() != null) {
-                    Optional<AiMessagesRecord> aiMessage = aiWorker.pushMessage(context.getId(), chatId, "user", List.of(
+                    Optional<AiMessagesRecord> aiMessage = aiWorker.getMessagesManager().pushMessage(context.getId(), chatId, "user", List.of(
                             ContentPart.textContentPart(reply.text())
                     ));
 
@@ -162,17 +202,9 @@ public class UserBridge {
             }
         }else {
             context = optionalContext.get();
-
-            Optional<AiPresetsRecord> newPreset = tag.flatMap(this::getPreset);
-
-            if (newPreset.isPresent() && !context.getLastPresetId().equals(newPreset.get().getId())) {
-                context = aiWorker
-                        .updateContext(context.getId(), newPreset.get().getId())
-                        .orElseThrow();
-            }
         }
 
-        return Pair.of(context, text);
+        return context;
     }
 
     protected Optional<AiContextsRecord> findContext(Message newMessage) {
@@ -216,7 +248,7 @@ public class UserBridge {
                 text = "Forwarded message: " + text;
             }
 
-            Optional<AiMessagesRecord> aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
+            Optional<AiMessagesRecord> aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "system", List.of(
                     ContentPart.textContentPart(text)
             ));
 
@@ -227,7 +259,7 @@ public class UserBridge {
         }
 
         if (message.quote() != null) {
-            Optional<AiMessagesRecord> aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
+            Optional<AiMessagesRecord> aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "system", List.of(
                     ContentPart.textContentPart("User's quote: " + message.quote().text())
             ));
 
@@ -238,14 +270,18 @@ public class UserBridge {
         if (message.chat().type() != Chat.Type.Private)
             text = message.from().username() + " says: " + text;
 
-        Optional<AiMessagesRecord> aiMessage = aiWorker.pushMessage(contextId, chatId, "user", List.of(
+        Optional<AiMessagesRecord> aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "user", List.of(
                 ContentPart.textContentPart(text)
         ));
 
         if (aiMessage.isPresent())
             aiWorker.getMessagesManager().linkTelegramMessage(aiMessage.get().getId(), message.messageId());
 
-        scene.askAndAnswer(contextId, message.messageId());
+        try {
+            scene.askAndAnswer(contextId, message.messageId()).get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void processPhoto(PhotoSize photo, Message message, long contextId) {
@@ -253,7 +289,7 @@ public class UserBridge {
             scene.getChatHandler().getCore().execute(new GetFile(photo.fileId())).thenAccept(r -> {
                 String path = r.file().filePath();
 
-                Optional<AiMessagesRecord> aiMessage = aiWorker.pushMessage(contextId, chatId, "user", List.of(
+                Optional<AiMessagesRecord> aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "user", List.of(
                         ContentPart.imageUrlContentPart("https://api.telegram.org/file/bot" + Main.getBotToken() + "/"+ path)
                 ));
 
@@ -277,25 +313,25 @@ public class UserBridge {
 
                 try {
                     if (mimeType.startsWith("image/"))
-                        aiMessage = aiWorker.pushMessage(contextId, chatId, "user", List.of(
+                        aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "user", List.of(
                                 ContentPart.imageUrlContentPart(fileUrl)
                         ));
                     else if (mimeType.equals("application/pdf")) {
                         String pdfText = FileDownloader.downloadFile(fileUrl).thenApply(TextConverters::parsePdf).get().orElseThrow();
 
-                        aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
+                        aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "system", List.of(
                                 ContentPart.textContentPart("User uploaded .pdf file with text: " + pdfText)
                         ));
                     } else if (mimeType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
                         String docxText = FileDownloader.downloadFile(fileUrl).thenApply(TextConverters::docx2markdown).get().orElseThrow();
 
-                        aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
+                        aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "system", List.of(
                                 ContentPart.textContentPart("User uploaded .docx file with text: " + docxText)
                         ));
                     } else if (mimeType.equals("text/html")) {
                         String pageText = FileDownloader.downloadFile(fileUrl).thenApply(TextConverters::parseHtml).get().orElseThrow();
 
-                        aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
+                        aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "system", List.of(
                                 ContentPart.textContentPart("User uploaded .html file with text: " + pageText)
                         ));
                     }
@@ -304,7 +340,7 @@ public class UserBridge {
                         String textFile = FileDownloader.downloadFileAsString(fileUrl).get();
 
                         if (FileDownloader.isReadable(textFile))
-                            aiMessage = aiWorker.pushMessage(contextId, chatId, "system", List.of(
+                            aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "system", List.of(
                                     ContentPart.textContentPart("User uploaded " + mimeType + " file: " + textFile)
                             ));
                     }
@@ -367,21 +403,30 @@ public class UserBridge {
                 .map(ReactionTypeEmoji::emoji)
                 .collect(Collectors.joining(" "));
 
-        aiWorker.pushMessage(context.get().getId(), chatId, "user", List.of(
-                ContentPart.textContentPart(newReactions)
-        ));
+        ReentrantLock lock = getLock(context.get().getId());
+        lock.lock();
 
-        if (newReactions.contains("\uD83D\uDC4E")) {
-            AiMessagesRecord lastUserMessage = lastMessage;
+        try {
+            aiWorker.getMessagesManager().pushMessage(context.get().getId(), chatId, "user", List.of(
+                    ContentPart.textContentPart(newReactions)
+            ));
 
-            List<AiMessagesRecord> userMessages = linkedMessages.stream()
-                    .filter(m -> m.getRole().equals("user"))
-                    .toList();
+            if (newReactions.contains("\uD83D\uDC4E")) {
+                AiMessagesRecord lastUserMessage = lastMessage;
 
-            if (!userMessages.isEmpty())
-                lastUserMessage = userMessages.get(userMessages.size() - 1);
+                List<AiMessagesRecord> userMessages = linkedMessages.stream()
+                        .filter(m -> m.getRole().equals("user"))
+                        .toList();
 
-            scene.askAndAnswer(context.get().getId(), lastUserMessage.getMessageId().intValue());
+                if (!userMessages.isEmpty())
+                    lastUserMessage = userMessages.get(userMessages.size() - 1);
+
+                scene.askAndAnswer(context.get().getId(), lastUserMessage.getMessageId().intValue()).get();
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -415,24 +460,32 @@ public class UserBridge {
 
         String text = needHandle.second();
 
-        Pair<AiContextsRecord, String> context = findOrInitContext(firstEvent.data, text);
-
+        AiContextsRecord context = findOrInitContext(firstEvent.data, text);
         if (context == null) {
             scene.getChatHandler().sendMessage(MessageBuilder.text("Fail to find and init context"));
 
             return;
         }
 
-        text = context.second();
-        scene.lastContext = context.first().getId();
+        ReentrantLock lock = getLock(context.getId());
+        lock.lock();
 
-        for (NewMessageEvent event : events) {
-            PhotoSize[] photos = event.data.photo();
+        try {
+            Pair<AiContextsRecord, String> updatedContext = updateContextPreset(text, context);
 
-            processPhoto(photos[photos.length - 1], event.data, scene.lastContext);
+            text = updatedContext.second();
+            scene.lastContext = updatedContext.first().getId();
+
+            for (NewMessageEvent event : events) {
+                PhotoSize[] photos = event.data.photo();
+
+                processPhoto(photos[photos.length - 1], event.data, scene.lastContext);
+            }
+
+            if (text != null)
+                processText(text, firstEvent.data, scene.lastContext);
+        }finally {
+            lock.unlock();
         }
-
-        if (text != null)
-            processText(text, firstEvent.data, scene.lastContext);
     }
 }

@@ -3,6 +3,7 @@ package su.knst.telegram.ai.managers;
 import com.google.common.cache.LoadingCache;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.github.stefanbratanov.jvm.openai.ContentPart;
 import io.github.stefanbratanov.jvm.openai.Usage;
 import org.flywaydb.core.internal.util.Pair;
 import org.jooq.JSON;
@@ -18,6 +19,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import static su.knst.telegram.ai.utils.ContentPartParser.contentToJson;
 
 @Singleton
 public class AiMessagesManager {
@@ -64,6 +67,12 @@ public class AiMessagesManager {
             cacheRecords.add(pushed.get());
 
         return pushed;
+    }
+
+    public Optional<AiMessagesRecord> pushMessage(long contextId, long chatId, String role, List<ContentPart> contentParts) {
+        return pushMessage(contextId, chatId, role,
+                contentToJson(contentParts.stream().map(c -> (Object) c).toList())
+        );
     }
 
     public void linkTelegramMessage(long aiMessageId, long telegramMessageId) {

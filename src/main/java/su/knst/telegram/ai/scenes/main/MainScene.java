@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainScene extends BaseScene<NewMessageEvent> {
     protected AiWorker aiWorker;
@@ -39,6 +41,8 @@ public class MainScene extends BaseScene<NewMessageEvent> {
 
     protected long lastContext;
 
+    protected static final ExecutorService executorService = Executors.newFixedThreadPool(4);
+
     public MainScene(ScenedAbstractChatHandler chatHandler, AiWorker aiWorker, ChatPreferencesManager preferencesManager) {
         super(chatHandler);
 
@@ -48,16 +52,24 @@ public class MainScene extends BaseScene<NewMessageEvent> {
         this.userBridge = new UserBridge(this, chatId, aiWorker);
         this.aiBridge = new AiBridge(this, chatId, aiWorker);
 
-        eventHandler.registerListener(NewMessageEvent.class, userBridge::newMessage);
-        eventHandler.registerListener(MessageReactionEvent.class, userBridge::reaction);
-        eventHandler.registerListener(EditedMessageEvent.class, userBridge::editedMessage);
+        eventHandler.registerListener(NewMessageEvent.class,
+                (e) -> executorService.execute(() -> userBridge.newMessage(e))
+        );
+
+        eventHandler.registerListener(MessageReactionEvent.class,
+                (e) -> executorService.execute(() -> userBridge.reaction(e))
+        );
+
+        eventHandler.registerListener(EditedMessageEvent.class,
+                (e) -> executorService.execute(() -> userBridge.editedMessage(e))
+        );
     }
 
     public void resetLastContext() {
         lastContext = -1;
     }
 
-    public void askAndAnswer(long contextId, int replyTo) {
+    public CompletableFuture<Boolean> askAndAnswer(long contextId, int replyTo) {
         CompletableFuture<Boolean> future = aiWorker.ask(contextId, chatId, (u) -> {
             try {
                 aiBridge.contextUpdate(u, replyTo);
@@ -68,7 +80,7 @@ public class MainScene extends BaseScene<NewMessageEvent> {
 
         chatHandler.setActionUntil(future, ChatAction.typing);
 
-        future.whenComplete((r, t) -> {
+        return future.whenComplete((r, t) -> {
             if (t != null) {
                 t.printStackTrace();
 

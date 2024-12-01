@@ -16,7 +16,7 @@ import su.knst.telegram.ai.workers.AiWorker;
 
 import java.util.concurrent.ExecutionException;
 
-public class SettingsScene extends BaseScene<Object> {
+public class SettingsScene extends BaseScene<Long> {
     protected MessageMenu<FlexListButtonsLayout> mainMenu;
     protected PresetsMenu presetsMenu;
 
@@ -87,8 +87,10 @@ public class SettingsScene extends BaseScene<Object> {
     }
 
     @Override
-    public void start() {
-        super.start();
+    public void start(Long userId) {
+        super.start(userId);
+
+        eventHandler.setValidator((e) -> e.userId == userId); // lock scene only for one user, who asked settings menu
 
         updateMain(true);
     }

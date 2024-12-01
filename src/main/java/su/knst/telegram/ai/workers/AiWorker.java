@@ -271,12 +271,6 @@ public class AiWorker {
         return result;
     }
 
-    public Optional<AiMessagesRecord> pushMessage(long contextId, long chatId, String role, List<ContentPart> contentParts) {
-        return messagesManager.pushMessage(contextId, chatId, role,
-                contentToJson(contentParts.stream().map(c -> (Object) c).toList())
-        );
-    }
-
     public CompletableFuture<String> generateFilename(String assistantOutput) {
         AiConfig.FilenameGeneration fg = config.filenameGeneration;
 
