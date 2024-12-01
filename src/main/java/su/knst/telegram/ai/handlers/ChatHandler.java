@@ -43,10 +43,10 @@ public class ChatHandler extends ScenedAbstractChatHandler {
 
         registerCommand(new AdminCommand(whitelistManager));
         registerCommand(new StartCommand(configWorker.telegram.startMessage));
-        registerCommand(new SettingsCommand());
+        registerCommand(new SettingsCommand(whitelistManager));
         registerCommand(new NewContextCommand());
-        registerCommand(new DeleteCommand());
-        registerCommand(new AddPresetCommand(configWorker, aiWorker));
+        registerCommand(new DeleteCommand(whitelistManager));
+        registerCommand(new AddPresetCommand(configWorker, aiWorker, whitelistManager));
 
         eventHandler.setValidator((e) -> {
             if (whitelistManager.getPermission(chatId) == UserPermission.UNAUTHORIZED) {

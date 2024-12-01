@@ -9,7 +9,6 @@ import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.utils.UserPermission;
 
 public class AdminCommand extends AbstractCommand {
-
     protected WhitelistManager whitelistManager;
 
     public AdminCommand(WhitelistManager whitelistManager) {
@@ -38,15 +37,16 @@ public class AdminCommand extends AbstractCommand {
 
     @Override
     public void run(String[] strings, NewMessageEvent newMessageEvent) {
+        if (newMessageEvent.data.chat().type() != Chat.Type.Private) {
+            chatHandler.sendMessage(MessageBuilder.text("Available only in private chats"));
+
+            return;
+        }
+
         UserPermission permission = whitelistManager.getPermission(newMessageEvent.data.from().id());
 
         if (permission != UserPermission.SUPER_ADMIN && permission != UserPermission.ADMIN)
             return;
-
-        if (newMessageEvent.data.chat().type() != Chat.Type.Private) {
-            chatHandler.sendMessage(MessageBuilder.text("Available only in private chats"));
-            return;
-        }
 
         chatHandler.deleteMessage(newMessageEvent.data.messageId());
 

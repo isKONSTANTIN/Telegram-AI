@@ -7,10 +7,18 @@ import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.ChatMember;
 import com.pengrad.telegrambot.request.GetChatMember;
 import com.pengrad.telegrambot.response.GetChatMemberResponse;
+import su.knst.telegram.ai.managers.WhitelistManager;
+import su.knst.telegram.ai.utils.UserPermission;
 
 import java.util.concurrent.ExecutionException;
 
 public class SettingsCommand extends AbstractCommand {
+    protected WhitelistManager whitelistManager;
+
+    public SettingsCommand(WhitelistManager whitelistManager) {
+        this.whitelistManager = whitelistManager;
+    }
+
     @Override
     public String name() {
         return "settings";
@@ -29,20 +37,24 @@ public class SettingsCommand extends AbstractCommand {
     @Override
     public void run(String[] strings, NewMessageEvent newMessageEvent) {
         if (newMessageEvent.data.chat().type() != Chat.Type.Private) {
-            ChatMember.Status status;
+            UserPermission permission = whitelistManager.getPermission(newMessageEvent.data.from().id());
 
-            try {
-                status = chatHandler.getCore()
-                        .execute(new GetChatMember(newMessageEvent.data.chat().id(), newMessageEvent.data.from().id()))
-                        .thenApply(GetChatMemberResponse::chatMember)
-                        .thenApply(ChatMember::status)
-                        .get();
-            } catch (InterruptedException | ExecutionException e) {
-                return;
+            if (permission != UserPermission.SUPER_ADMIN && permission != UserPermission.ADMIN) {
+                ChatMember.Status status;
+
+                try {
+                    status = chatHandler.getCore()
+                            .execute(new GetChatMember(newMessageEvent.data.chat().id(), newMessageEvent.data.from().id()))
+                            .thenApply(GetChatMemberResponse::chatMember)
+                            .thenApply(ChatMember::status)
+                            .get();
+                } catch (InterruptedException | ExecutionException e) {
+                    return;
+                }
+
+                if (status != ChatMember.Status.creator && status != ChatMember.Status.administrator)
+                    return;
             }
-
-            if (status != ChatMember.Status.creator && status != ChatMember.Status.administrator)
-                return;
         }
 
         chatHandler.deleteMessage(newMessageEvent.data.messageId());

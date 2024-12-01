@@ -12,7 +12,9 @@ import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.handlers.ChatHandler;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
+import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.scenes.main.MainScene;
+import su.knst.telegram.ai.utils.UserPermission;
 import su.knst.telegram.ai.workers.AiWorker;
 
 import java.util.Arrays;
@@ -21,10 +23,12 @@ import java.util.concurrent.ExecutionException;
 public class AddPresetCommand extends AbstractCommand {
     protected ConfigWorker configWorker;
     protected AiWorker aiWorker;
+    protected WhitelistManager whitelistManager;
 
-    public AddPresetCommand(ConfigWorker configWorker, AiWorker aiWorker) {
+    public AddPresetCommand(ConfigWorker configWorker, AiWorker aiWorker, WhitelistManager whitelistManager) {
         this.configWorker = configWorker;
         this.aiWorker = aiWorker;
+        this.whitelistManager = whitelistManager;
     }
 
     @Override
@@ -44,6 +48,27 @@ public class AddPresetCommand extends AbstractCommand {
 
     @Override
     public void run(String[] strings, NewMessageEvent newMessageEvent) {
+        if (newMessageEvent.data.chat().type() != Chat.Type.Private) {
+            UserPermission permission = whitelistManager.getPermission(newMessageEvent.data.from().id());
+
+            if (permission != UserPermission.SUPER_ADMIN && permission != UserPermission.ADMIN) {
+                ChatMember.Status status;
+
+                try {
+                    status = chatHandler.getCore()
+                            .execute(new GetChatMember(newMessageEvent.data.chat().id(), newMessageEvent.data.from().id()))
+                            .thenApply(GetChatMemberResponse::chatMember)
+                            .thenApply(ChatMember::status)
+                            .get();
+                } catch (InterruptedException | ExecutionException e) {
+                    return;
+                }
+
+                if (status != ChatMember.Status.creator && status != ChatMember.Status.administrator)
+                    return;
+            }
+        }
+
         chatHandler.deleteMessage(newMessageEvent.data.messageId());
 
         if (strings.length < 2) {

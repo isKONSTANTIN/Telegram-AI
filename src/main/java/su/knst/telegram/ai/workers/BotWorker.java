@@ -52,11 +52,11 @@ public class BotWorker {
         }
 
         BotCommand[] commands = Stream.of(
-                        new DeleteCommand(),
+                        new DeleteCommand(null),
                         new NewContextCommand(),
-                        new SettingsCommand(),
+                        new SettingsCommand(null),
                         new StartCommand(null),
-                        new AddPresetCommand(null, null))
+                        new AddPresetCommand(null, null, null))
                 .filter((c) -> !c.hidden())
                 .filter((c) -> !c.description().isBlank())
                 .map((c) -> new BotCommand(c.name(), (c.commandArgsTips() != null ? c.commandArgsTips() + " " : "") + c.description()))
