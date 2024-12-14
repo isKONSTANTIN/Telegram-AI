@@ -254,6 +254,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 "The temperature parameter controls the degree of randomness in the responses. " +
                 "At a low value (closer to 0), the answers will be more deterministic and conservative. " +
                 "With a high value (closer to 1), the answers will become more diverse and creative.",
+                record.getTemperature(),
                 Float::parseFloat,
                 (t) -> aiWorker.getPresetsManager().editPreset(record.getId(),
                         model.getId(),
@@ -273,6 +274,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                         "the probability of the next word. The model will select among words whose sum of " +
                         "probabilities is at least the specified value. High values allow you to take into " +
                         "account a variety of options when choosing words",
+                record.getTopP(),
                 Float::parseFloat,
                 (p) -> aiWorker.getPresetsManager().editPreset(record.getId(),
                         model.getId(),
@@ -289,6 +291,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         addEditingButton("Edit Frequency Penalty",
                 "Editing Frequency Penalty of #" + record.getTag(),
                 "This parameter imposes a penalty on frequently occurring words. High values force the model to avoid repetition",
+                record.getFrequencyPenalty(),
                 Float::parseFloat,
                 (f) -> aiWorker.getPresetsManager().editPreset(record.getId(),
                         model.getId(),
@@ -305,6 +308,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         addEditingButton("Edit Presence Penalty",
                 "Editing Presence Penalty of #" + record.getTag(),
                 "This parameter controls the frequency of occurrence of already used words in the response. High values reduce the likelihood of the same words being used again",
+                record.getPresencePenalty(),
                 Float::parseFloat,
                 (p) -> aiWorker.getPresetsManager().editPreset(record.getId(),
                         model.getId(),
@@ -321,6 +325,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         addEditingButton("Edit Max Tokens",
                 "Editing Max Tokens of #" + record.getTag(),
                 "Limits the maximum number of tokens that can be generated in a response",
+                record.getMaxTokens(),
                 Integer::parseInt,
                 (t) -> aiWorker.getPresetsManager().editPreset(record.getId(),
                         model.getId(),
@@ -336,7 +341,8 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
 
         addEditingButton("Edit Prompt",
                 "Editing Prompt of #" + record.getTag(),
-                "This parameter allows you to change the behavior of the AI\n\nOld prompt: ```" + record.getText() + "```",
+                "This parameter allows you to change the behavior of the AI",
+                record.getText(),
                 (s) -> {
                     if (s.isBlank())
                         throw new InvalidParameterException();
@@ -358,6 +364,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         addEditingButton("Edit Tag",
                 "Editing Tag of #" + record.getTag(),
                 "This parameter defines the name of the tag that will be searched in the requests to determine the behavior",
+                null,
                 (s) -> {
                     if (s.isBlank())
                         throw new InvalidParameterException();
@@ -407,11 +414,16 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         });
     }
 
-    protected <T> void addEditingButton(String buttonTitle, String title, String description, Function<String, T> mapper, Function<T, Boolean> newValueFunction) {
+    protected <T> void addEditingButton(String buttonTitle, String title, String description, T oldValue, Function<String, T> mapper, Function<T, Boolean> newValueFunction) {
         layout.addButton(new InlineKeyboardButton(buttonTitle), 1, (e) -> {
             TypedAskMenu<T> menu = new TypedAskMenu<>(scene);
 
-            menu.setText(title, description);
+            String descriptionWithOld = description;
+
+            if (oldValue != null)
+                descriptionWithOld += "\n\n```Old:\n" + oldValue + "```";
+
+            menu.setText(title, descriptionWithOld);
             menu.setResultFunction((r) -> {
                 if (r == null) {
                     apply();

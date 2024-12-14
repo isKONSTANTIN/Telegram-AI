@@ -54,7 +54,7 @@ public class AiBridge {
         if (message != null) {
             ArrayList<Object> contents = new ArrayList<>();
 
-            if (message.content() != null)
+            if (message.content() != null && !message.content().isBlank())
                 contents.add(ContentPart.textContentPart(message.content()));
 
             if (message.toolCalls() != null && !message.toolCalls().isEmpty())
@@ -62,7 +62,7 @@ public class AiBridge {
 
             AiMessagesRecord record = aiWorker.getMessagesManager().pushMessage(update.contextId(), update.chatId(), "assistant", contentToJson(contents)).orElseThrow();
 
-            if (message.content() != null)
+            if (message.content() != null && !message.content().isBlank())
                 sendAndLinkContext(message.content(), record, replyTo).get();
         }
 
