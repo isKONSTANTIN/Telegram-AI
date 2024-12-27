@@ -59,6 +59,6 @@ public class SettingsCommand extends AbstractCommand {
 
         chatHandler.deleteMessage(newMessageEvent.data.messageId());
 
-        ((ScenedAbstractChatHandler) chatHandler).startScene("settings", newMessageEvent.userId);
+        ((ScenedAbstractChatHandler) chatHandler).startScene("settings", newMessageEvent);
     }
 }

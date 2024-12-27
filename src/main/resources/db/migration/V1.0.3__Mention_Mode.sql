@@ -1,0 +1,1 @@
+alter table chats_preferences add column mention_mode integer not null default 0;

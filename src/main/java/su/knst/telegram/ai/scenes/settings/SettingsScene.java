@@ -1,10 +1,12 @@
 package su.knst.telegram.ai.scenes.settings;
 
+import app.finwave.tat.event.chat.NewMessageEvent;
 import app.finwave.tat.handlers.scened.ScenedAbstractChatHandler;
 import app.finwave.tat.menu.FlexListButtonsLayout;
 import app.finwave.tat.menu.MessageMenu;
 import app.finwave.tat.scene.BaseScene;
 import app.finwave.tat.utils.MessageBuilder;
+import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
@@ -12,17 +14,20 @@ import su.knst.telegram.ai.managers.AiContextManager;
 import su.knst.telegram.ai.managers.ChatPreferencesManager;
 import su.knst.telegram.ai.managers.AiModelsManager;
 import su.knst.telegram.ai.utils.ContextMode;
+import su.knst.telegram.ai.utils.MentionMode;
 import su.knst.telegram.ai.workers.AiWorker;
 
 import java.util.concurrent.ExecutionException;
 
-public class SettingsScene extends BaseScene<Long> {
+public class SettingsScene extends BaseScene<NewMessageEvent> {
     protected MessageMenu<FlexListButtonsLayout> mainMenu;
     protected PresetsMenu presetsMenu;
 
     protected AiWorker aiWorker;
     protected ChatPreferencesManager preferencesManager;
     protected ConfigWorker configWorker;
+
+    protected NewMessageEvent sourceEvent;
 
     public SettingsScene(ScenedAbstractChatHandler chatHandler, ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager preferencesManager) {
         super(chatHandler);
@@ -42,6 +47,7 @@ public class SettingsScene extends BaseScene<Long> {
 
         ChatsPreferencesRecord preferencesRecord = preferencesManager.getPreferences(chatId).orElseThrow();
         ContextMode contextMode = ContextMode.values()[preferencesRecord.getContextsMode()];
+        MentionMode mentionMode = MentionMode.values()[preferencesRecord.getMentionMode()];
 
         MessageBuilder builder = MessageBuilder.create();
 
@@ -58,11 +64,21 @@ public class SettingsScene extends BaseScene<Long> {
                 Dive into your preset settings to fine-tune your AI interactions. Customize prompt style, response behavior, and more for a truly personalized experience.
                 """).gap();
 
+        if (sourceEvent.data.chat().type() != Chat.Type.Private) {
+            builder.line("Mention Mode: " + (mentionMode == MentionMode.WITH_MENTION ? "With mention of a bot" : "Without mention of a bot"));
+
+            mainMenu.getLayout().addButton(new InlineKeyboardButton("Switch Mention Mode"), 3, (e) -> {
+                preferencesManager.setMentionMode(chatId, mentionMode == MentionMode.WITH_MENTION ? MentionMode.WITHOUT_MENTION : MentionMode.WITH_MENTION);
+
+                updateMain(false);
+            });
+        }
+
         builder.line("Context Mode: " + (contextMode == ContextMode.MULTI_REPLY ? "Multi" : "Single"));
 
         mainMenu.setMessage(builder.build());
 
-        mainMenu.getLayout().addButton(new InlineKeyboardButton("Switch Context Mode"), 6, (e) -> {
+        mainMenu.getLayout().addButton(new InlineKeyboardButton("Switch Context Mode"), 3, (e) -> {
             preferencesManager.setContextMode(chatId, contextMode == ContextMode.MULTI_REPLY ? ContextMode.SINGLE : ContextMode.MULTI_REPLY);
 
             updateMain(false);
@@ -87,10 +103,11 @@ public class SettingsScene extends BaseScene<Long> {
     }
 
     @Override
-    public void start(Long userId) {
-        super.start(userId);
+    public void start(NewMessageEvent sourceEvent) {
+        super.start(sourceEvent);
+        this.sourceEvent = sourceEvent;
 
-        eventHandler.setValidator((e) -> e.userId == userId); // lock scene only for one user, who asked settings menu
+        eventHandler.setValidator((e) -> e.userId == sourceEvent.userId); // lock scene only for one user, who asked settings menu
 
         updateMain(true);
     }

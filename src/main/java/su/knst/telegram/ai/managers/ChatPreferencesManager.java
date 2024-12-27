@@ -8,6 +8,7 @@ import su.knst.telegram.ai.database.DatabaseWorker;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
 import su.knst.telegram.ai.utils.CacheHandyBuilder;
 import su.knst.telegram.ai.utils.ContextMode;
+import su.knst.telegram.ai.utils.MentionMode;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -64,6 +65,17 @@ public class ChatPreferencesManager {
 
     public Optional<ChatsPreferencesRecord> setContextMode(long chatId, ContextMode mode) {
         Optional<ChatsPreferencesRecord> preferences = database.setContextMode(chatId, mode);
+
+        if (preferences.isEmpty())
+            return preferences;
+
+        preferencesCache.put(chatId, preferences);
+
+        return preferences;
+    }
+
+    public Optional<ChatsPreferencesRecord> setMentionMode(long chatId, MentionMode mode) {
+        Optional<ChatsPreferencesRecord> preferences = database.setMentionMode(chatId, mode);
 
         if (preferences.isEmpty())
             return preferences;

@@ -20,6 +20,7 @@ import su.knst.telegram.ai.jooq.tables.records.AiPresetsRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
 import su.knst.telegram.ai.utils.CacheHandyBuilder;
 import su.knst.telegram.ai.utils.ContextMode;
+import su.knst.telegram.ai.utils.MentionMode;
 import su.knst.telegram.ai.utils.functions.FileDownloader;
 import su.knst.telegram.ai.utils.parsers.TextConverters;
 import su.knst.telegram.ai.workers.AiWorker;
@@ -221,6 +222,7 @@ public class UserBridge {
         }else if ((newMessage.forwardOrigin() != null || contextMode == ContextMode.SINGLE) && scene.lastContext != -1) {
             result = aiWorker.getContextManager().getContext(scene.lastContext);
         }
+
 
         return result;
     }
@@ -431,7 +433,7 @@ public class UserBridge {
     }
 
     protected Pair<Boolean, String> needHandle(Message message, String text) {
-        if (message.chat().type() == Chat.Type.Private)
+        if (message.chat().type() == Chat.Type.Private || MentionMode.values()[scene.preferences.getMentionMode()] == MentionMode.WITHOUT_MENTION)
             return Pair.of(true, text);
 
         User me = scene.getChatHandler().getCore().getMe().orElseThrow();

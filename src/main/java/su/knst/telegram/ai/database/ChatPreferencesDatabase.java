@@ -5,6 +5,7 @@ import org.jooq.DSLContext;
 import org.jooq.Record1;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
 import su.knst.telegram.ai.utils.ContextMode;
+import su.knst.telegram.ai.utils.MentionMode;
 
 import java.util.Optional;
 
@@ -42,6 +43,15 @@ public class ChatPreferencesDatabase extends AbstractDatabase {
     public Optional<ChatsPreferencesRecord> setContextMode(long chatId, ContextMode mode) {
         return context.update(CHATS_PREFERENCES)
                 .set(CHATS_PREFERENCES.CONTEXTS_MODE, mode.ordinal())
+                .where(CHATS_PREFERENCES.CHAT_ID.eq(chatId))
+                .returningResult(CHATS_PREFERENCES)
+                .fetchOptional()
+                .map(Record1::component1);
+    }
+
+    public Optional<ChatsPreferencesRecord> setMentionMode(long chatId, MentionMode mode) {
+        return context.update(CHATS_PREFERENCES)
+                .set(CHATS_PREFERENCES.MENTION_MODE, mode.ordinal())
                 .where(CHATS_PREFERENCES.CHAT_ID.eq(chatId))
                 .returningResult(CHATS_PREFERENCES)
                 .fetchOptional()
