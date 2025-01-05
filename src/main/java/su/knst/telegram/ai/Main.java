@@ -1,5 +1,7 @@
 package su.knst.telegram.ai;
 
+import app.finwave.rct.reactive.property.Property;
+import app.finwave.rct.reactive.value.Value;
 import app.finwave.tat.BotCore;
 import com.google.common.io.Files;
 import com.google.inject.Guice;
@@ -21,16 +23,13 @@ public class Main {
     protected static Injector INJ;
     protected static Logger log;
 
-    protected static String botToken;
+    protected static Property<String> botToken;
 
     public static void main(String[] args) throws IOException {
         ConfigWorker configWorker = new ConfigWorker();
-        botToken = configWorker.telegram.apiToken;
-
-        BotCore core = new BotCore(botToken);
+        botToken = configWorker.telegramToken;
 
         INJ = Guice.createInjector(binder -> {
-            binder.bind(BotCore.class).toInstance(core);
             binder.bind(ConfigWorker.class).toInstance(configWorker);
         });
 
@@ -43,7 +42,7 @@ public class Main {
     }
 
     public static String getBotToken() {
-        return botToken;
+        return botToken.get();
     }
 
     public static Injector getINJ() {

@@ -43,7 +43,7 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
         builder.bold().line("Model View").bold();
 
         AiModelsRecord model = modelsManager.getModel(modelId).orElseThrow();
-        AiConfig.Server server = configWorker.ai.servers[model.getServer()];
+        AiConfig.Server server = configWorker.ai.get().servers[model.getServer()];
 
         String[] tools = model.getIncludedTools();
         String toolsString = tools.length == 0 ? "Empty" : String.join(", ", tools).replaceAll("_", " ");
@@ -101,7 +101,7 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
             TypedAskMenu<Integer> askMenu = new TypedAskMenu<>(scene);
             askMenu.setText("Editing model's server", "Select new server");
 
-            AiConfig.Server[] servers = configWorker.ai.servers;
+            AiConfig.Server[] servers = configWorker.ai.get().servers;
 
             for (int i = 0; i < servers.length; i++) {
                 AiConfig.Server s = servers[i];
@@ -109,7 +109,7 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
             }
 
             askMenu.setResultFunction((r) -> {
-                if (r == null || r < 0 || r >= configWorker.ai.servers.length) {
+                if (r == null || r < 0 || r >= configWorker.ai.get().servers.length) {
                     selected(model.getId());
 
                     return true;
@@ -275,7 +275,7 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
             AskMenu askModel = new AskMenu(scene);
 
             askServer.setText("New model's server", "Select server");
-            AiConfig.Server[] servers = configWorker.ai.servers;
+            AiConfig.Server[] servers = configWorker.ai.get().servers;
 
             for (int i = 0; i < servers.length; i++) {
                 AiConfig.Server s = servers[i];
@@ -283,7 +283,7 @@ public class ModelsMenu extends MessageMenu<FlexListButtonsLayout> {
             }
 
             askServer.setResultFunction((r) -> {
-                if (r == null || r < 0 || r >= configWorker.ai.servers.length) {
+                if (r == null || r < 0 || r >= configWorker.ai.get().servers.length) {
                     applyMain();
 
                     return true;

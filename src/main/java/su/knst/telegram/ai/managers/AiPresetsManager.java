@@ -1,5 +1,6 @@
 package su.knst.telegram.ai.managers;
 
+import app.finwave.rct.reactive.property.Property;
 import com.google.common.cache.LoadingCache;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -28,17 +29,22 @@ public class AiPresetsManager {
     public AiPresetsManager(DatabaseWorker worker, ConfigWorker configWorker) {
         this.presetsDatabase = worker.get(AiPresetsDatabase.class);
 
-        AiConfig.Cache cachingConfig = configWorker.ai.cache;
+        Property<AiConfig> config = configWorker.ai;
+        initCache(config.get().cache);
 
+        config.addChangeListener((n) -> initCache(n.cache));
+    }
+
+    protected void initCache(AiConfig.Cache cache) {
         this.presetsCache = CacheHandyBuilder.loading(
                 1, TimeUnit.DAYS,
-                cachingConfig.maxPresets,
+                cache.maxPresets,
                 (presetId) -> presetsDatabase.getPreset(presetId)
         );
 
         this.chatPresetsCache = CacheHandyBuilder.loading(
                 1, TimeUnit.DAYS,
-                cachingConfig.maxPresets,
+                cache.maxPresets,
                 (chatId) -> {
                     List<AiPresetsRecord> result = presetsDatabase.getList(chatId);
 

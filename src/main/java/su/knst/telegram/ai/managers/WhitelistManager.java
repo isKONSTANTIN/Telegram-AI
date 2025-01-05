@@ -1,9 +1,11 @@
 package su.knst.telegram.ai.managers;
 
+import app.finwave.rct.reactive.property.Property;
 import com.google.common.cache.LoadingCache;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import su.knst.telegram.ai.config.ConfigWorker;
+import su.knst.telegram.ai.config.TelegramConfig;
 import su.knst.telegram.ai.database.ChatsDatabase;
 import su.knst.telegram.ai.database.DatabaseWorker;
 import su.knst.telegram.ai.jooq.tables.records.ChatsRecord;
@@ -17,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 @Singleton
 public class WhitelistManager {
-    protected long superAdmin;
+    protected Property<TelegramConfig> telegramConfig;
     protected ChatsDatabase chatsDatabase;
 
     protected LoadingCache<Long, UserPermission> permissionsCache;
@@ -25,7 +27,7 @@ public class WhitelistManager {
 
     @Inject
     public WhitelistManager(ConfigWorker configWorker, DatabaseWorker databaseWorker) {
-        this.superAdmin = configWorker.telegram.superAdminId;
+        this.telegramConfig = configWorker.telegram;
         this.chatsDatabase = databaseWorker.get(ChatsDatabase.class);
 
         this.permissionsCache = CacheHandyBuilder.loading(
@@ -42,7 +44,7 @@ public class WhitelistManager {
     }
 
     protected UserPermission permission(long id) {
-        if (superAdmin == id)
+        if (telegramConfig.get().superAdminId == id)
             return UserPermission.SUPER_ADMIN;
 
         try {

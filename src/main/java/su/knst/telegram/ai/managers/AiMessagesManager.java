@@ -1,5 +1,6 @@
 package su.knst.telegram.ai.managers;
 
+import app.finwave.rct.reactive.property.Property;
 import com.google.common.cache.LoadingCache;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -33,11 +34,16 @@ public class AiMessagesManager {
     public AiMessagesManager(DatabaseWorker worker, ConfigWorker configWorker) {
         this.messagesDatabase = worker.get(AiMessagesDatabase.class);
 
-        AiConfig.Cache cachingConfig = configWorker.ai.cache;
+        Property<AiConfig> config = configWorker.ai;
+        initCache(config.get().cache);
 
+        config.addChangeListener((n) -> initCache(n.cache));
+    }
+
+    protected void initCache(AiConfig.Cache cache) {
         this.contextMessagesCache = CacheHandyBuilder.loading(
                 1, TimeUnit.DAYS,
-                cachingConfig.maxContexts,
+                cache.maxContexts,
                 (contextId) -> new ArrayList<>(messagesDatabase.getMessages(contextId)),
                 (i) -> {
                     ArrayList<AiMessagesRecord> messages = i.getValue();
@@ -50,7 +56,7 @@ public class AiMessagesManager {
 
         this.chatMessageCache = CacheHandyBuilder.loading(
                 1, TimeUnit.DAYS,
-                cachingConfig.maxMessages,
+                cache.maxMessages,
                 (p) -> messagesDatabase.getMessage(p.getLeft(), p.getRight())
         );
     }

@@ -1,5 +1,7 @@
 package su.knst.telegram.ai.workers;
 
+import app.finwave.rct.reactive.property.Property;
+import app.finwave.rct.reactive.value.Value;
 import app.finwave.tat.utils.Pair;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
@@ -44,7 +46,7 @@ public class AiWorker {
 
     protected AiTools aiTools;
 
-    protected AiConfig config;
+    protected Property<AiConfig> config;
     protected AiContextManager contextManager;
     protected AiMessagesManager messagesManager;
     protected AiPresetsManager presetsManager;
@@ -52,7 +54,7 @@ public class AiWorker {
 
     protected ChatsDatabase chatsDatabase;
 
-    protected List<OpenAI> servers;
+    protected Value<List<OpenAI>> servers;
 
     @Inject
     public AiWorker(ConfigWorker configWorker, AiContextManager contextManager, AiMessagesManager messagesManager, AiPresetsManager presetsManager, AiModelsManager modelsManager, DatabaseWorker databaseWorker, AiTools aiTools) {
@@ -69,23 +71,25 @@ public class AiWorker {
 
         this.chatsDatabase = databaseWorker.get(ChatsDatabase.class);
 
-        this.servers = Arrays.stream(config.servers).map((s) -> {
-            OpenAI.Builder builder = OpenAI.newBuilder();
+        this.servers = config.map((c) ->
+                Arrays.stream(c.servers).map((s) -> {
+                    OpenAI.Builder builder = OpenAI.newBuilder();
 
-            if (!s.token.isBlank())
-                builder.apiKey(s.token);
+                    if (!s.token.isBlank())
+                        builder.apiKey(s.token);
 
-            if (!s.customUrl.isBlank())
-                builder.baseUrl(s.customUrl);
+                    if (!s.customUrl.isBlank())
+                        builder.baseUrl(s.customUrl);
 
-            if (!s.project.isBlank())
-                builder.project(s.project);
+                    if (!s.project.isBlank())
+                        builder.project(s.project);
 
-            if (!s.organization.isBlank())
-                builder.organization(s.organization);
+                    if (!s.organization.isBlank())
+                        builder.organization(s.organization);
 
-            return builder.build();
-        }).toList();
+                    return builder.build();
+                }).toList()
+        );
 
         aiTools.setWorker(this);
     }
@@ -229,7 +233,7 @@ public class AiWorker {
         if (!undoneRequests.isEmpty())
             runTools(undoneRequests, contextId, chatId, updatesConsumer);
 
-        ChatCompletion chatCompletion = servers.get(model.getServer())
+        ChatCompletion chatCompletion = servers.get().get(model.getServer())
                 .chatClient()
                 .createChatCompletion(createChatCompletionRequest(messages, preset, model));
 
@@ -272,7 +276,7 @@ public class AiWorker {
     }
 
     public CompletableFuture<String> generateFilename(String assistantOutput) {
-        AiConfig.FilenameGeneration fg = config.filenameGeneration;
+        AiConfig.FilenameGeneration fg = config.get().filenameGeneration;
 
         if (!fg.useGPT)
             return CompletableFuture.completedFuture(null);
@@ -299,7 +303,7 @@ public class AiWorker {
 
         CreateChatCompletionRequest chatCompletionRequest = builder.build();
 
-        return servers.get(fg.serverIndexToUse).chatClient()
+        return servers.get().get(fg.serverIndexToUse).chatClient()
                 .createChatCompletionAsync(chatCompletionRequest)
                 .thenApply((r) -> r.choices().get(0).message().content())
                 .thenApply((s) -> {
@@ -315,12 +319,12 @@ public class AiWorker {
 
     protected CompletableFuture<Images> createImage(String prompt, String size, String quality) {
         CreateImageRequest.Builder builder = CreateImageRequest.newBuilder()
-                .model(config.imagineSettings.model)
+                .model(config.get().imagineSettings.model)
                 .prompt(prompt)
                 .size(size)
                 .quality(quality);
 
-        return servers.get(config.imagineSettings.serverIndexToUse)
+        return servers.get().get(config.get().imagineSettings.serverIndexToUse)
                 .imagesClient()
                 .createImageAsync(builder.build());
     }

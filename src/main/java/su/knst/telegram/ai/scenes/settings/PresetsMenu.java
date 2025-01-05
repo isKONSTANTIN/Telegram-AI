@@ -53,7 +53,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
     }
 
     protected Optional<AiPresetsRecord> addNewPreset(String tag, String text) {
-        AiConfig.Preset defaultPreset = configWorker.ai.defaultUserPreset;
+        AiConfig.Preset defaultPreset = configWorker.ai.get().defaultUserPreset;
         AiModelsRecord modelsRecord = aiWorker.getModelsManager().getModels().get(0);
 
         return aiWorker.getPresetsManager().addPreset(
@@ -171,7 +171,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         AiModelsRecord model = aiWorker.getModelsManager().getModel(record.getModel()).orElseThrow();
 
         MessageBuilder builder = MessageBuilder.create();
-        AiConfig.Server server = configWorker.ai.servers[model.getServer()];
+        AiConfig.Server server = configWorker.ai.get().servers[model.getServer()];
 
         builder.bold().append("#" + record.getTag()).bold();
 

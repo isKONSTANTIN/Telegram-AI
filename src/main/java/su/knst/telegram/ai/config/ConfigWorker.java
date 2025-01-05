@@ -1,25 +1,40 @@
 package su.knst.telegram.ai.config;
 
-import app.finwave.scw.RootConfig;
+import app.finwave.rct.config.ConfigManager;
+import app.finwave.rct.config.ConfigNode;
+import app.finwave.rct.reactive.property.Property;
 
 import java.io.File;
 import java.io.IOException;
 
 public class ConfigWorker {
-    public final DatabaseConfig database;
-    public final TelegramConfig telegram;
-    public final LoggingConfig loggingConfig;
-    public final AiConfig ai;
+    public final Property<TelegramConfig> telegram;
+    public final Property<String> telegramToken;
 
-    protected final RootConfig main;
+    public final Property<DatabaseConfig> database;
+    public final Property<LoggingConfig> loggingConfig;
+    public final Property<AiConfig> ai;
+
+    protected final ConfigNode main;
+
+    protected ConfigManager manager;
 
     public ConfigWorker() throws IOException {
-        main = new RootConfig(new File("configs/main.conf"), true);
-        main.load();
+        manager = new ConfigManager();
 
-        database = main.subNode("database").getOrSetAs(DatabaseConfig.class, DatabaseConfig::new);
-        telegram = main.subNode("telegram").getOrSetAs(TelegramConfig.class, TelegramConfig::new);
-        loggingConfig = main.subNode("logging").getOrSetAs(LoggingConfig.class, LoggingConfig::new);
-        ai = main.subNode("ai").getOrSetAs(AiConfig.class, AiConfig::new);
+        main = manager.load(new File("configs/main.conf"));
+
+        database = main.node("database").getAs(DatabaseConfig.class);
+        telegram = main.node("telegram").getAs(TelegramConfig.class);
+        telegramToken = main.node("telegram").getAsString("apiToken");
+
+        loggingConfig = main.node("logging").getAs(LoggingConfig.class);
+        ai = main.node("ai").getAs(AiConfig.class);
+
+        // Not only set default value (via getOr()), but write new class fields if they not exists
+        database.set(database.getOr(new DatabaseConfig()));
+        telegram.set(telegram.getOr(new TelegramConfig()));
+        loggingConfig.set(loggingConfig.getOr(new LoggingConfig()));
+        ai.set(ai.getOr(new AiConfig()));
     }
 }

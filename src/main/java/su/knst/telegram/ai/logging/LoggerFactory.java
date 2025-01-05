@@ -1,5 +1,6 @@
 package su.knst.telegram.ai.logging;
 
+import app.finwave.rct.reactive.property.Property;
 import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import su.knst.telegram.ai.Main;
@@ -7,7 +8,7 @@ import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.config.LoggingConfig;
 
 public class LoggerFactory implements ILoggerFactory {
-    protected static LoggingConfig config;
+    protected static Property<LoggingConfig> config;
 
     static {
         config = Main.getINJ().getInstance(ConfigWorker.class).loggingConfig;
@@ -15,7 +16,7 @@ public class LoggerFactory implements ILoggerFactory {
 
     @Override
     public Logger getLogger(String name) {
-        if (!config.logFullClassName) {
+        if (!config.get().logFullClassName) {
             String[] split = name.split("\\.");
             name = split[split.length - 1];
         }

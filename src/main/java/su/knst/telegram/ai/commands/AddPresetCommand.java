@@ -77,7 +77,7 @@ public class AddPresetCommand extends AbstractCommand {
             return;
         }
 
-        AiConfig.Preset defaultPreset = configWorker.ai.defaultUserPreset;
+        AiConfig.Preset defaultPreset = configWorker.ai.get().defaultUserPreset;
         AiModelsRecord modelsRecord = aiWorker.getModelsManager().getModels().get(0);
 
         var preset = aiWorker.getPresetsManager().addPreset(

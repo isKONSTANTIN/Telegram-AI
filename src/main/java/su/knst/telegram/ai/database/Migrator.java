@@ -17,7 +17,7 @@ public class Migrator {
 
     @Inject
     public Migrator(ConfigWorker configWorker) {
-        this.config = configWorker.database;
+        this.config = configWorker.database.get();
     }
 
     public void migrate() throws Exception {

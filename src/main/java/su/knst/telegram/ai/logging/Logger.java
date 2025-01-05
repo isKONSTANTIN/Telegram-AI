@@ -1,5 +1,6 @@
 package su.knst.telegram.ai.logging;
 
+import app.finwave.rct.reactive.property.Property;
 import org.slf4j.Marker;
 import org.slf4j.event.Level;
 import org.slf4j.helpers.AbstractLogger;
@@ -13,7 +14,7 @@ import java.time.format.DateTimeFormatter;
 
 public class Logger extends AbstractLogger {
 
-    protected static LoggingConfig config;
+    protected static Property<LoggingConfig> config;
     protected static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     static {
@@ -48,7 +49,7 @@ public class Logger extends AbstractLogger {
 
     @Override
     public boolean isTraceEnabled() {
-        return config.trace;
+        return config.get().trace;
     }
 
     @Override
@@ -58,7 +59,7 @@ public class Logger extends AbstractLogger {
 
     @Override
     public boolean isDebugEnabled() {
-        return config.debug;
+        return config.get().debug;
     }
 
     @Override
@@ -68,7 +69,7 @@ public class Logger extends AbstractLogger {
 
     @Override
     public boolean isInfoEnabled() {
-        return config.info;
+        return config.get().info;
     }
 
     @Override
@@ -78,7 +79,7 @@ public class Logger extends AbstractLogger {
 
     @Override
     public boolean isWarnEnabled() {
-        return config.warning;
+        return config.get().warning;
     }
 
     @Override
@@ -88,7 +89,7 @@ public class Logger extends AbstractLogger {
 
     @Override
     public boolean isErrorEnabled() {
-        return config.error;
+        return config.get().error;
     }
 
     @Override

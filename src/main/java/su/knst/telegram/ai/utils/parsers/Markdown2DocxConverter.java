@@ -1,6 +1,5 @@
 package su.knst.telegram.ai.utils.parsers;
 
-import app.finwave.scw.utils.gson.G;
 import org.apache.poi.xwpf.usermodel.*;
 import org.commonmark.ext.gfm.tables.*;
 import org.commonmark.ext.gfm.tables.internal.TableBlockParser;

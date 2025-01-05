@@ -1,5 +1,7 @@
 package su.knst.telegram.ai.commands;
 
+import app.finwave.rct.reactive.property.Property;
+import app.finwave.rct.reactive.value.Value;
 import app.finwave.tat.event.chat.NewMessageEvent;
 import app.finwave.tat.handlers.command.AbstractCommand;
 import app.finwave.tat.handlers.scened.ScenedAbstractChatHandler;
@@ -8,14 +10,15 @@ import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.ChatMember;
 import com.pengrad.telegrambot.request.GetChatMember;
 import com.pengrad.telegrambot.response.GetChatMemberResponse;
+import su.knst.telegram.ai.config.ConfigWorker;
 
 import java.util.concurrent.ExecutionException;
 
 public class StartCommand extends AbstractCommand {
-    protected String startMessage;
+    protected Value<String> startMessage;
 
-    public StartCommand(String startMessage) {
-        this.startMessage = startMessage;
+    public StartCommand(ConfigWorker configWorker) {
+        this.startMessage = configWorker == null ? Value.wrap("") :configWorker.telegram.map((c) -> c.startMessage);
     }
 
     @Override
@@ -52,7 +55,7 @@ public class StartCommand extends AbstractCommand {
                 return;
         }
 
-        chatHandler.sendMessage(MessageBuilder.text(startMessage)).whenComplete((r, t) -> {
+        chatHandler.sendMessage(MessageBuilder.text(startMessage.get())).whenComplete((r, t) -> {
             t.printStackTrace();
             chatHandler.deleteMessage(newMessageEvent.data.messageId());
         });

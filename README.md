@@ -56,13 +56,13 @@ cd Telegram-AI/deploy
 sudo ./start.sh
 ```
 
-After downloading the containers and starting for the first time, stop the bot to edit the configuration:
+After downloading the containers and starting, edit the configuration:
 
 ```bash
-sudo ./stop.sh
 nano tg_ai/configs/main.conf
-sudo ./start.sh
 ```
+
+When changing configs, you do not need to restart the bot unless it is related to the database.
 
 ---
 

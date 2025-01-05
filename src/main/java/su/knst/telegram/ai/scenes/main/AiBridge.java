@@ -1,8 +1,8 @@
 package su.knst.telegram.ai.scenes.main;
 
-import app.finwave.scw.utils.gson.G;
 import app.finwave.tat.utils.MessageBuilder;
 import app.finwave.tat.utils.Pair;
+import com.google.gson.Gson;
 import com.pengrad.telegrambot.model.reaction.ReactionTypeEmoji;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.SendDocument;
@@ -58,7 +58,7 @@ public class AiBridge {
                 contents.add(ContentPart.textContentPart(message.content()));
 
             if (message.toolCalls() != null && !message.toolCalls().isEmpty())
-                contents.add(new ContentMeta(message.toolCalls().stream().map(G.GSON::toJsonTree).toList(), null));
+                contents.add(new ContentMeta(message.toolCalls().stream().map(GSON::toJsonTree).toList(), null));
 
             AiMessagesRecord record = aiWorker.getMessagesManager().pushMessage(update.contextId(), update.chatId(), "assistant", contentToJson(contents)).orElseThrow();
 

@@ -34,15 +34,13 @@ public class AiTools {
 
     protected AiContextManager contextManager;
     protected AiMessagesManager messagesManager;
-    protected BotCore botCore;
 
     protected AiWorker worker;
 
     @Inject
-    public AiTools(AiContextManager contextManager, AiMessagesManager messagesManager, BotCore botCore) {
+    public AiTools(AiContextManager contextManager, AiMessagesManager messagesManager) {
         this.contextManager = contextManager;
         this.messagesManager = messagesManager;
-        this.botCore = botCore;
 
         buildTools();
     }

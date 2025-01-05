@@ -23,7 +23,7 @@ public class DatabaseWorker {
 
     @Inject
     public DatabaseWorker(ConfigWorker configWorker, Migrator migrator) {
-        DatabaseConfig config = configWorker.database;
+        DatabaseConfig config = configWorker.database.get();
 
         log.info("Init database...");
 

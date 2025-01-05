@@ -42,7 +42,7 @@ public class ChatHandler extends ScenedAbstractChatHandler {
         registerScene("admin", new AdminScene(this, aiWorker, whitelistManager, botWorker, configWorker));
 
         registerCommand(new AdminCommand(whitelistManager));
-        registerCommand(new StartCommand(configWorker.telegram.startMessage));
+        registerCommand(new StartCommand(configWorker));
         registerCommand(new SettingsCommand(whitelistManager));
         registerCommand(new NewContextCommand());
         registerCommand(new DeleteCommand(whitelistManager));
@@ -56,7 +56,7 @@ public class ChatHandler extends ScenedAbstractChatHandler {
             }
 
             if (!presetsInit && aiWorker.getPresetsManager().getPresets(chatId).isEmpty()) {
-                AiConfig.Preset defaultPreset = configWorker.ai.defaultUserPreset;
+                AiConfig.Preset defaultPreset = configWorker.ai.get().defaultUserPreset;
                 AiModelsRecord modelsRecord = aiWorker.getModelsManager().getModels().get(0);
 
                 Optional<AiPresetsRecord> preset = aiWorker.getPresetsManager().addPreset(chatId, modelsRecord.getId(), defaultPreset.temperature, defaultPreset.topP, defaultPreset.frequencyPenalty, defaultPreset.presencePenalty, defaultPreset.maxTokens, defaultPreset.prompt, "default");

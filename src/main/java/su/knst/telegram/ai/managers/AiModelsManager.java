@@ -1,11 +1,13 @@
 package su.knst.telegram.ai.managers;
 
+import app.finwave.rct.reactive.property.Property;
 import app.finwave.tat.utils.Pair;
 import com.google.common.cache.LoadingCache;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.github.stefanbratanov.jvm.openai.Usage;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
+import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.database.DatabaseWorker;
 import su.knst.telegram.ai.database.AiModelsDatabase;
@@ -30,9 +32,18 @@ public class AiModelsManager {
     public AiModelsManager(DatabaseWorker databaseWorker, ConfigWorker configWorker) {
         this.database = databaseWorker.get(AiModelsDatabase.class);
 
+        Property<AiConfig> config = configWorker.ai;
+        initCache(config.get().cache);
+
+        config.addChangeListener((n) -> {
+            initCache(n.cache);
+        });
+    }
+
+    protected void initCache(AiConfig.Cache cache) {
         this.allowedModelsCache = CacheHandyBuilder.loading(
                 7, TimeUnit.DAYS,
-                configWorker.ai.cache.maxModels,
+                cache.maxModels,
                 (modelId) -> database.getModel(modelId)
         );
     }
