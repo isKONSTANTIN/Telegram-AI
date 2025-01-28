@@ -18,7 +18,7 @@ Knst's Telegram AI Bot is designed to enhance your experience with GPT models an
 
 - 🎭 Telegram Reactions: Dynamic interactions using message reactions.
 
-- 🌐 Web Content Integration: Automatically extract text from web pages without explicit commands.
+- 🌐 Web Content Integration: Automatically extract text from web pages without explicit commands and searching via DuckDuckGo
 
 - 🎨 DALL·E 3 Support: Create imaginative images using the DALL·E 3.
 

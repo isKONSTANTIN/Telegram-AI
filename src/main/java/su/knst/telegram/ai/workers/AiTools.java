@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import su.knst.telegram.ai.managers.AiContextManager;
 import su.knst.telegram.ai.managers.AiMessagesManager;
 import su.knst.telegram.ai.utils.functions.*;
+import su.knst.telegram.ai.utils.functions.search.DDGSearch;
 import su.knst.telegram.ai.utils.parsers.Markdown2DocxConverter;
 import su.knst.telegram.ai.utils.parsers.TextConverters;
 
@@ -110,6 +111,19 @@ public class AiTools {
                     }
                 },
                 Parameter.of("url", "string", "Url to read", true)
+        );
+
+        function("search", "Use this function to search websites from duckduckgo",
+                (chatId, contextId, args) -> {
+                    String request = args.get("request");
+
+                    try {
+                        return new FunctionSearchResult(DDGSearch.search(request));
+                    } catch (Exception e) {
+                        return new FunctionError("Fail to search");
+                    }
+                },
+                Parameter.of("request", "string", "Search request", true)
         );
 
         function("imagine", "Use this function to imagine and send photo to user using DALL·E 3. Do NOT share result link",

@@ -40,6 +40,12 @@ public class FileDownloader {
                 return Files.readString(f.toPath());
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            }finally {
+                try {
+                    Files.deleteIfExists(f.toPath());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         });
     }
