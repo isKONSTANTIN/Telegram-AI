@@ -75,7 +75,7 @@ public class AiModelsDatabase extends AbstractDatabase {
 
     public List<Pair<Long, Usage>> getModelUsage(int modelId, LocalDate date) {
         LocalDate start = date.withDayOfMonth(1);
-        LocalDate end = date.withDayOfMonth(date.getMonth().maxLength());
+        LocalDate end = date.withDayOfMonth(date.getMonth().length(date.isLeapYear()));
 
         return context.select(sum(AI_MODELS_USAGE.COMPLETION_TOKENS_USED), sum(AI_MODELS_USAGE.PROMPT_TOKENS_USED), AI_MODELS_USAGE.CHAT_ID)
                 .from(AI_MODELS_USAGE)

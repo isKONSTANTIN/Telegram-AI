@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'su.knst.telegram.ai'
-version = '1.7.0'
+version = '1.7.1'
 mainClassName = group + ".Main"
 archivesBaseName = 'Knst-Telegram-AI'
 
