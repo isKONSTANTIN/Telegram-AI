@@ -44,7 +44,7 @@ jobs:
           arguments: build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Knst Telegram AI
           path: build/libs/*.jar
@@ -54,7 +54,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Knst Telegram AI
 
