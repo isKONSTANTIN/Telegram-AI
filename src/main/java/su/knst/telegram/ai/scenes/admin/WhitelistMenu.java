@@ -8,10 +8,12 @@ import app.finwave.tat.menu.FlexListButtonsLayout;
 import app.finwave.tat.menu.MessageMenu;
 import app.finwave.tat.scene.BaseScene;
 import app.finwave.tat.utils.MessageBuilder;
+import com.pengrad.telegrambot.model.ChatFullInfo;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.message.origin.MessageOrigin;
 import com.pengrad.telegrambot.model.message.origin.MessageOriginUser;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
+import com.pengrad.telegrambot.request.GetChat;
 import com.pengrad.telegrambot.response.BaseResponse;
 import su.knst.telegram.ai.jooq.tables.records.ChatsRecord;
 import su.knst.telegram.ai.managers.WhitelistManager;
@@ -45,7 +47,33 @@ public class WhitelistMenu extends MessageMenu<FlexListButtonsLayout> {
                 }
 
                 whitelistManager.addToWhitelist(id);
-                apply();
+                scene.getChatHandler().getCore().execute(new GetChat(id)).thenAccept((r) -> {
+                    ChatFullInfo info = r.chat();
+
+                    String title = info.title();
+                    String firstName = info.firstName();
+                    String lastName = info.lastName();
+                    String username = info.username();
+
+                    StringBuilder builder = new StringBuilder();
+
+                    if (title == null) {
+                        if (firstName != null)
+                            builder.append(firstName);
+
+                        if (lastName != null)
+                            builder.append(" ").append(lastName);
+
+                        if (username != null)
+                            builder.append(" (@").append(username).append(")");
+                    } else {
+                        builder.append(title);
+                    }
+
+                    whitelistManager.editDescription(id, builder.toString());
+                }).whenComplete((r, t) -> {
+                    apply();
+                });
 
                 return true;
             }, Long::parseLong);
