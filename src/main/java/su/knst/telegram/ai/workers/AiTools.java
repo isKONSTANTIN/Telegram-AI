@@ -105,7 +105,7 @@ public class AiTools {
                     String url = args.get("url");
 
                     try {
-                        return new FunctionTextResult(TextConverters.parseHtml(FileDownloader.downloadFile(url).get()).orElseThrow());
+                        return new FunctionTextResult(TextConverters.parseHtmlWithLinks(FileDownloader.downloadFile(url).get()).orElseThrow());
                     } catch (Exception e) {
                         return new FunctionError("Fail to read");
                     }

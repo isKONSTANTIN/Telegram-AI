@@ -52,6 +52,28 @@ public class TextConverters {
         return Optional.empty();
     }
 
+    public static Optional<String> parseHtmlWithLinks(File file) {
+        try {
+            Document doc = Jsoup.parse(file, "UTF-8");
+            Element body = doc.body();
+
+            StringBuilder sb = new StringBuilder();
+            body.traverse((node, depth) -> {
+                if (node instanceof Element e && e.tagName().equals("a") && e.hasAttr("href")) {
+                    sb.append(e.attr("href"))
+                            .append(": ");
+                } else if (node instanceof org.jsoup.nodes.TextNode) {
+                    sb.append(((org.jsoup.nodes.TextNode) node).text()).append(" ");
+                }
+            });
+
+            return Optional.of(sb.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return Optional.empty();
+    }
+
     public static Optional<String> docx2markdown(File file) {
         StringBuilder markdown = new StringBuilder();
 
