@@ -126,7 +126,11 @@ public class UserBridge {
             if (message.photo() != null) {
                 PhotoSize[] photos = message.photo();
 
-                processPhoto(photos[photos.length - 1], message, scene.lastContext);
+                processPhoto(photos[photos.length - 1].fileId(), message, scene.lastContext);
+            }
+
+            if (message.sticker() != null && !message.sticker().isAnimated() && !message.sticker().isVideo()) {
+                processPhoto(message.sticker().fileId(), message, scene.lastContext);
             }
 
             if (message.document() != null)
@@ -186,7 +190,11 @@ public class UserBridge {
                 if (reply.photo() != null) {
                     PhotoSize[] photos = reply.photo();
 
-                    processPhoto(photos[photos.length - 1], reply, context.getId());
+                    processPhoto(photos[photos.length - 1].fileId(), reply, context.getId());
+                }
+
+                if (reply.sticker() != null && !message.sticker().isAnimated() && !message.sticker().isVideo()) {
+                    processPhoto(message.sticker().fileId(), message, scene.lastContext);
                 }
 
                 if (reply.document() != null)
@@ -286,9 +294,9 @@ public class UserBridge {
         }
     }
 
-    protected void processPhoto(PhotoSize photo, Message message, long contextId) {
+    protected void processPhoto(String fileId, Message message, long contextId) {
         try {
-            scene.getChatHandler().getCore().execute(new GetFile(photo.fileId())).thenAccept(r -> {
+            scene.getChatHandler().getCore().execute(new GetFile(fileId)).thenAccept(r -> {
                 String path = r.file().filePath();
 
                 Optional<AiMessagesRecord> aiMessage = aiWorker.getMessagesManager().pushMessage(contextId, chatId, "user", List.of(
@@ -481,7 +489,7 @@ public class UserBridge {
             for (NewMessageEvent event : events) {
                 PhotoSize[] photos = event.data.photo();
 
-                processPhoto(photos[photos.length - 1], event.data, scene.lastContext);
+                processPhoto(photos[photos.length - 1].fileId(), event.data, scene.lastContext);
             }
 
             if (text != null)
