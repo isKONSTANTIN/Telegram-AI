@@ -97,7 +97,15 @@ public class AiTools {
 
         function("react", "Use this function to react to the user's last message",
                 (chatId, contextId, args) -> new FunctionReactionResult(args.get("emoji")),
-                Parameter.of("emoji", "string", "Emoji to send", true)
+                Parameter.of("emoji", List.of(
+                        "👍", "👎", "❤", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🤬", "😢", "🎉", "🤩", "🤮",
+                                "💩", "🙏", "👌", "🕊", "🤡", "🥱", "🥴", "😍", "🐳", "❤‍🔥", "🌚", "🌭", "💯", "🤣", "⚡",
+                                "🍌", "🏆", "💔", "🤨", "😐", "🍓", "🍾", "💋", "🖕", "😈", "😴", "😭", "🤓", "👻", "👨‍💻",
+                                "👀", "🎃", "🙈", "😇", "😨", "🤝", "✍", "🤗", "🫡", "🎅", "🎄", "☃", "💅", "🤪", "🗿",
+                                "🆒", "💘", "🙉", "🦄", "😘", "💊", "🙊", "😎", "👾", "🤷‍♂", "🤷", "🤷‍♀", "😡"),
+                        "Emoji to send",
+                        true
+                )
         );
 
         function("read_website", "Use this function to see website text content",
