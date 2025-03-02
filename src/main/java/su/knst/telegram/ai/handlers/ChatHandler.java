@@ -42,6 +42,7 @@ public class ChatHandler extends ScenedAbstractChatHandler {
         registerScene("admin", new AdminScene(this, aiWorker, whitelistManager, botWorker, configWorker));
 
         registerCommand(new AdminCommand(whitelistManager));
+        registerCommand(new DebugCommand(configWorker, aiWorker.getMessagesManager()));
         registerCommand(new StartCommand(configWorker));
         registerCommand(new SettingsCommand(whitelistManager));
         registerCommand(new NewContextCommand());
