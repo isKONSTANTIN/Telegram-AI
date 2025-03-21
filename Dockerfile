@@ -2,7 +2,7 @@ FROM openjdk:17.0.1-jdk-slim
 MAINTAINER isKONSTANTIN <me@knst.su>
 
 RUN apt-get update && \
-    apt-get install -y libfreetype6 && \
+    apt-get install -y libfreetype6 fonts-dejavu-core && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
