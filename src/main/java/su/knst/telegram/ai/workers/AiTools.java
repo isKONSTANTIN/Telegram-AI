@@ -173,7 +173,7 @@ public class AiTools {
 
                         for (int j = 0; j < split.length; j++) {
                             String e = split[j];
-                            parsedEdges[i][j] = !e.isBlank() ? Integer.parseInt(e) : -1;
+                            parsedEdges[i][j] = !e.isBlank() ? Integer.parseInt(e.trim()) : -1;
                         }
                     }
 
