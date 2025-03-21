@@ -5,6 +5,7 @@ import app.finwave.rct.reactive.value.Value;
 import app.finwave.tat.utils.Pair;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.github.stefanbratanov.jvm.openai.*;
@@ -193,10 +194,10 @@ public class AiWorker {
                 .create();
 
         String name = functionCall.function().name();
-        Map<String, String> args;
+        Map<String, JsonElement> args;
 
         try {
-            args = g.fromJson(functionCall.function().arguments(), new TypeToken<Map<String, String>>(){}.getType());
+            args = g.fromJson(functionCall.function().arguments(), new TypeToken<Map<String, JsonElement>>(){}.getType());
         }catch (Exception e) {
             return new FunctionError("Function call failed: invalid arguments json");
         }

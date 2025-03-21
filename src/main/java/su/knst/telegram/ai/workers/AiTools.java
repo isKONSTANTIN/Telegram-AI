@@ -4,6 +4,7 @@ import app.finwave.tat.BotCore;
 import com.ezylang.evalex.EvaluationException;
 import com.ezylang.evalex.Expression;
 import com.ezylang.evalex.parser.ParseException;
+import com.google.gson.JsonElement;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.github.stefanbratanov.jvm.openai.Function;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import su.knst.telegram.ai.managers.AiContextManager;
 import su.knst.telegram.ai.managers.AiMessagesManager;
+import su.knst.telegram.ai.utils.DiagramGenerator;
 import su.knst.telegram.ai.utils.functions.*;
 import su.knst.telegram.ai.utils.functions.search.DDGSearch;
 import su.knst.telegram.ai.utils.parsers.Markdown2DocxConverter;
@@ -50,7 +52,7 @@ public class AiTools {
         this.worker = worker;
     }
 
-    public FunctionResult run(String name, long chatId, long contextId, Map<String, String> args) {
+    public FunctionResult run(String name, long chatId, long contextId, Map<String, JsonElement> args) {
         FunctionExecutor executor = functionExecutors.get(name);
 
         if (executor == null)
@@ -83,7 +85,7 @@ public class AiTools {
         function("calculate", "Use this function to calculate math expressions",
                 (chatId, contextId, args) -> {
                     try {
-                        return new FunctionTextResult(new Expression(args.get("expression"))
+                        return new FunctionTextResult(new Expression(args.get("expression").getAsString())
                                 .evaluate()
                                 .getNumberValue()
                                 .toString()
@@ -96,7 +98,7 @@ public class AiTools {
         );
 
         function("react", "Use this function to react to the user's last message",
-                (chatId, contextId, args) -> new FunctionReactionResult(args.get("emoji")),
+                (chatId, contextId, args) -> new FunctionReactionResult(args.get("emoji").getAsString()),
                 Parameter.of("emoji", List.of(
                         "👍", "👎", "❤", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🤬", "😢", "🎉", "🤩", "🤮",
                                 "💩", "🙏", "👌", "🕊", "🤡", "🥱", "🥴", "😍", "🐳", "❤‍🔥", "🌚", "🌭", "💯", "🤣", "⚡",
@@ -110,7 +112,7 @@ public class AiTools {
 
         function("read_website", "Use this function to see website text content",
                 (chatId, contextId, args) -> {
-                    String url = args.get("url");
+                    String url = args.get("url").getAsString();
 
                     try {
                         return new FunctionTextResult(TextConverters.parseHtmlWithLinks(FileDownloader.downloadFile(url).get()).orElseThrow());
@@ -123,7 +125,7 @@ public class AiTools {
 
         function("search", "Use this function to search websites from duckduckgo",
                 (chatId, contextId, args) -> {
-                    String request = args.get("request");
+                    String request = args.get("request").getAsString();
 
                     try {
                         return new FunctionSearchResult(DDGSearch.search(request));
@@ -136,9 +138,12 @@ public class AiTools {
 
         function("imagine", "Use this function to imagine and send photo to user using DALL·E 3. Do NOT share result link",
                 (chatId, contextId, args) -> {
-                    String prompt = args.get("prompt");
-                    String size = args.get("size");
-                    boolean hd = Optional.ofNullable(args.get("hd")).map(Boolean::parseBoolean).orElse(false);
+                    String prompt = args.get("prompt").getAsString();
+                    String size = args.get("size").getAsString();
+                    boolean hd = false;
+
+                    if (!args.get("hd").isJsonNull() && args.get("hd").isJsonPrimitive())
+                        hd = args.get("hd").getAsBoolean();
 
                     CompletableFuture<Images> futureImage = worker.createImage(prompt, size, hd ? "hd" : "standard");
 
@@ -154,16 +159,46 @@ public class AiTools {
                 Parameter.of("hd", "boolean", "Specify true if you need to generate an image at the maximum resolution", false)
         );
 
+        function("imagine_diagram", "Use this function to imagine and send photo of strict diagram",
+                (chatId, contextId, args) -> {
+                    String[] titles = args.get("block_titles").getAsJsonArray().asList().stream().map(JsonElement::getAsString).toArray(String[]::new);
+                    String[] edges = args.get("block_edges").getAsJsonArray().asList().stream().map(JsonElement::getAsString).toArray(String[]::new);
+                    DiagramGenerator.Type type = DiagramGenerator.Type.valueOf(args.get("type").getAsString());
+
+                    int[][] parsedEdges = new int[edges.length][];
+
+                    for (int i = 0; i < edges.length; i++) {
+                        String[] split = edges[i].split(";");
+                        parsedEdges[i] = new int[split.length];
+
+                        for (int j = 0; j < split.length; j++) {
+                            String e = split[j];
+                            parsedEdges[i][j] = !e.isBlank() ? Integer.parseInt(e) : -1;
+                        }
+                    }
+
+                    try {
+                        return new FunctionImageResult(DiagramGenerator.generateDiagram(titles, parsedEdges, type));
+                    }catch (Exception e) {
+                        e.printStackTrace();
+                        return new FunctionError("Fail to imagine");
+                    }
+                },
+                Parameter.of("block_titles", "array>string", "Titles for blocks in diagram", true),
+                Parameter.of("block_edges", "array>string", "Connections between blocks. For example, you need to make link from second block to first and third. You specify \"1;3\" in the second string of this array. Blocks index start with 1 and values can't be higher than amount of blocks", true),
+                Parameter.of("type", Arrays.stream(DiagramGenerator.Type.values()).map(DiagramGenerator.Type::name).toList(), "Type of graph layout", true)
+        );
+
         function("send_file", "Use this function to send file to user. Do NOT share result link",
-                (chatId, contextId, args) -> FunctionFileResult.fromString(args.get("content"), args.get("filename")),
+                (chatId, contextId, args) -> FunctionFileResult.fromString(args.get("content").getAsString(), args.get("filename").getAsString()),
                 Parameter.of("content", "string", "File's content", true),
                 Parameter.of("filename", "string", "Filename with extension", true)
         );
 
         function("send_docx_file", "Use this function to send docx file to user. Do NOT share result link for downloading",
                 (chatId, contextId, args) -> {
-                    String markdown = args.get("markdown");
-                    String filename = args.get("filename");
+                    String markdown = args.get("markdown").getAsString();
+                    String filename = args.get("filename").getAsString();
 
                     Optional<File> result = Markdown2DocxConverter.convert(markdown);
 

@@ -157,7 +157,13 @@ public class AiBridge {
     }
 
     protected CompletableFuture<?> sendAndLinkContext(FunctionImageResult imageResult, AiMessagesRecord record, int replyTo) {
-        CompletableFuture<File> future = FileDownloader.downloadFile(imageResult.url);
+        CompletableFuture<File> future;
+
+        if (imageResult.url != null) {
+            future = FileDownloader.downloadFile(imageResult.url);
+        }else {
+            future = CompletableFuture.completedFuture(imageResult.file);
+        }
 
         return future.thenApply((f) -> {
             try {
