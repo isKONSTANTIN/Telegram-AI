@@ -166,6 +166,8 @@ public class AiTools {
                     DiagramGenerator.Type type = DiagramGenerator.Type.valueOf(args.get("type").getAsString());
                     JsonArray blocks = args.get("blocks").getAsJsonArray();
                     LinkedHashMap<Integer, HashSet<Integer>> edges = new LinkedHashMap<>();
+                    HashMap<Integer, Integer> id2index = new HashMap<>();
+
                     ArrayList<String> titles = new ArrayList<>();
 
                     for (JsonElement element : blocks) {
@@ -174,6 +176,7 @@ public class AiTools {
                         int id = object.get("id").getAsInt();
                         String title = object.get("title").getAsString();
 
+                        id2index.put(id, titles.size());
                         titles.add(title);
                         edges.put(id, new HashSet<>());
 
@@ -197,7 +200,7 @@ public class AiTools {
                         int j = 0;
 
                         for (Integer e : edge) {
-                            parsedEdges[i][j] = e;
+                            parsedEdges[i][j] = id2index.get(e);
                             j++;
                         }
 

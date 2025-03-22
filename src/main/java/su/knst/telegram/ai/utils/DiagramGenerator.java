@@ -40,10 +40,7 @@ public class DiagramGenerator {
                 int[] edge = edges[i];
 
                 for (int j : edge) {
-                    if (j == -1 || j - 1 > vertices.length)
-                        continue;
-
-                    graph.insertEdge(parent, null, "", vertices[i], vertices[j - 1], EDGE_STYLE);
+                    graph.insertEdge(parent, null, "", vertices[i], vertices[j], EDGE_STYLE);
                 }
             }
 
