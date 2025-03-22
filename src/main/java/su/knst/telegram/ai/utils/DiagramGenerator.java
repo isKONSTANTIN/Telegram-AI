@@ -69,9 +69,6 @@ public class DiagramGenerator {
             case HIERARCHICAL -> layout = new mxHierarchicalLayout(graph);
             case ORGANIC -> layout = new mxOrganicLayout(graph);
             case CIRCLE -> layout = new mxCircleLayout(graph);
-            case PARALLEL -> layout = new mxParallelEdgeLayout(graph);
-            case PARTITION -> layout = new mxPartitionLayout(graph);
-            case STACK -> layout = new mxStackLayout(graph);
             default -> throw new IllegalStateException("Unexpected value: " + type);
         }
 
@@ -81,9 +78,6 @@ public class DiagramGenerator {
     public enum Type {
         HIERARCHICAL,
         ORGANIC,
-        CIRCLE,
-        PARALLEL,
-        PARTITION,
-        STACK
+        CIRCLE
     }
 }

@@ -4,7 +4,9 @@ import app.finwave.tat.BotCore;
 import com.ezylang.evalex.EvaluationException;
 import com.ezylang.evalex.Expression;
 import com.ezylang.evalex.parser.ParseException;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.github.stefanbratanov.jvm.openai.Function;
@@ -161,32 +163,60 @@ public class AiTools {
 
         function("imagine_diagram", "Use this function to imagine and send photo of strict diagram",
                 (chatId, contextId, args) -> {
-                    String[] titles = args.get("block_titles").getAsJsonArray().asList().stream().map(JsonElement::getAsString).toArray(String[]::new);
-                    String[] edges = args.get("block_edges").getAsJsonArray().asList().stream().map(JsonElement::getAsString).toArray(String[]::new);
                     DiagramGenerator.Type type = DiagramGenerator.Type.valueOf(args.get("type").getAsString());
+                    JsonArray blocks = args.get("blocks").getAsJsonArray();
+                    LinkedHashMap<Integer, HashSet<Integer>> edges = new LinkedHashMap<>();
+                    ArrayList<String> titles = new ArrayList<>();
 
-                    int[][] parsedEdges = new int[edges.length][];
+                    for (JsonElement element : blocks) {
+                        JsonObject object = element.getAsJsonObject();
 
-                    for (int i = 0; i < edges.length; i++) {
-                        String[] split = edges[i].split(";");
-                        parsedEdges[i] = new int[split.length];
+                        int id = object.get("id").getAsInt();
+                        String title = object.get("title").getAsString();
 
-                        for (int j = 0; j < split.length; j++) {
-                            String e = split[j];
-                            parsedEdges[i][j] = !e.isBlank() ? Integer.parseInt(e.trim()) : -1;
+                        titles.add(title);
+                        edges.put(id, new HashSet<>());
+
+                        JsonElement connectionsField = object.get("connection_ids");
+
+                        if (connectionsField == null)
+                            continue;
+
+                        JsonArray connectionsArray = connectionsField.getAsJsonArray();
+                        for (JsonElement connection : connectionsArray)
+                            edges.computeIfAbsent(id, k -> new HashSet<>()).add(connection.getAsInt());
+                    }
+
+                    var edgesCollection = edges.values();
+
+                    int[][] parsedEdges = new int[edgesCollection.size()][];
+                    int i = 0;
+
+                    for (HashSet<Integer> edge : edgesCollection) {
+                        parsedEdges[i] = new int[edge.size()];
+                        int j = 0;
+
+                        for (Integer e : edge) {
+                            parsedEdges[i][j] = e;
+                            j++;
                         }
+
+                        i++;
                     }
 
                     try {
-                        return new FunctionImageResult(DiagramGenerator.generateDiagram(titles, parsedEdges, type));
+                        return new FunctionImageResult(DiagramGenerator.generateDiagram(titles.toArray(String[]::new), parsedEdges, type));
                     }catch (Exception e) {
                         e.printStackTrace();
                         return new FunctionError("Fail to imagine");
                     }
                 },
-                Parameter.of("block_titles", "array>string", "Titles for blocks in diagram", true),
-                Parameter.of("block_edges", "array>string", "Connections between blocks. For example, you need to make link from second block to first and third. You specify \"1;3\" in the second string of this array. Blocks index start with 1 and values can't be higher than amount of blocks", true),
-                Parameter.of("type", Arrays.stream(DiagramGenerator.Type.values()).map(DiagramGenerator.Type::name).toList(), "Type of graph layout", true)
+                Parameter.of("type", Arrays.stream(DiagramGenerator.Type.values()).map(DiagramGenerator.Type::name).toList(), "Type of graph layout", true),
+                Parameter.of("blocks", "Blocks in diagram. Should be sorted", true,
+                        Parameter.of("id", "integer", "Block ID", true),
+                        Parameter.of("title", "string", "Title of block", true),
+                        Parameter.of("connection_ids", "array>integer", "Connections from this block to another. Specify other block IDs here", false)
+                )
         );
 
         function("send_file", "Use this function to send file to user. Do NOT share result link",
@@ -254,12 +284,22 @@ public class AiTools {
         public List<String> enumVariants;
         public boolean required;
 
+        public Parameter[] arrayObjectType;
+
         public Parameter(String name, String type, String description, List<String> enumVariants, boolean required) {
             this.name = name;
             this.type = type;
             this.description = description;
             this.enumVariants = enumVariants;
             this.required = required;
+        }
+
+        public Parameter(String name, String description, boolean required, Parameter... arrayType) {
+            this.name = name;
+            this.type = "array>object";
+            this.description = description;
+            this.required = required;
+            this.arrayObjectType = arrayType;
         }
 
         public Object toSchema() {
@@ -269,7 +309,15 @@ public class AiTools {
                 String[] types = type.split(">");
 
                 schema.put("type", types[0]);
-                schema.put("items", Map.of("type", types[1]));
+                Map<String, Object> items;
+                
+                if (types[1].equals("object")) {
+                    items = wrapParameters(arrayObjectType);
+                }else {
+                    items = Map.of("type", types[1]);
+                }
+
+                schema.put("items", items);
             }else
                 schema.put("type", type);
 
@@ -280,6 +328,10 @@ public class AiTools {
                 schema.put("enum", enumVariants);
 
             return schema;
+        }
+
+        public static Parameter of(String name, String description, boolean required, Parameter... arrayType) {
+            return new Parameter(name, description, required, arrayType);
         }
 
         public static Parameter of(String name, String type, String description, List<String> enumVariants, boolean required) {
