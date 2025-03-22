@@ -4,6 +4,7 @@ import app.finwave.tat.BotCore;
 import com.ezylang.evalex.EvaluationException;
 import com.ezylang.evalex.Expression;
 import com.ezylang.evalex.parser.ParseException;
+import com.google.common.reflect.TypeToken;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -25,6 +26,8 @@ import su.knst.telegram.ai.utils.parsers.TextConverters;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+
+import static su.knst.telegram.ai.utils.ContentPartParser.GSON;
 
 @Singleton
 public class AiTools {
@@ -161,64 +164,23 @@ public class AiTools {
                 Parameter.of("hd", "boolean", "Specify true if you need to generate an image at the maximum resolution", false)
         );
 
-        function("imagine_diagram", "Use this function to imagine and send photo of strict diagram",
+        function("imagine_diagram", "Use this function to imagine and send image of strict diagram",
                 (chatId, contextId, args) -> {
                     DiagramGenerator.Type type = DiagramGenerator.Type.valueOf(args.get("type").getAsString());
-                    JsonArray blocks = args.get("blocks").getAsJsonArray();
-                    LinkedHashMap<Integer, HashSet<Integer>> edges = new LinkedHashMap<>();
-                    HashMap<Integer, Integer> id2index = new HashMap<>();
-
-                    ArrayList<String> titles = new ArrayList<>();
-
-                    for (JsonElement element : blocks) {
-                        JsonObject object = element.getAsJsonObject();
-
-                        int id = object.get("id").getAsInt();
-                        String title = object.get("title").getAsString();
-
-                        id2index.put(id, titles.size());
-                        titles.add(title);
-                        edges.put(id, new HashSet<>());
-
-                        JsonElement connectionsField = object.get("connection_ids");
-
-                        if (connectionsField == null)
-                            continue;
-
-                        JsonArray connectionsArray = connectionsField.getAsJsonArray();
-                        for (JsonElement connection : connectionsArray)
-                            edges.computeIfAbsent(id, k -> new HashSet<>()).add(connection.getAsInt());
-                    }
-
-                    var edgesCollection = edges.values();
-
-                    int[][] parsedEdges = new int[edgesCollection.size()][];
-                    int i = 0;
-
-                    for (HashSet<Integer> edge : edgesCollection) {
-                        parsedEdges[i] = new int[edge.size()];
-                        int j = 0;
-
-                        for (Integer e : edge) {
-                            parsedEdges[i][j] = id2index.get(e);
-                            j++;
-                        }
-
-                        i++;
-                    }
+                    List<DiagramGenerator.Block> blocks = GSON.fromJson(args.get("blocks"), new TypeToken<List<DiagramGenerator.Block>>(){}.getType());
 
                     try {
-                        return new FunctionImageResult(DiagramGenerator.generateDiagram(titles.toArray(String[]::new), parsedEdges, type));
+                        return new FunctionImageResult(DiagramGenerator.generateDiagram(blocks, type));
                     }catch (Exception e) {
                         e.printStackTrace();
                         return new FunctionError("Fail to imagine");
                     }
                 },
                 Parameter.of("type", Arrays.stream(DiagramGenerator.Type.values()).map(DiagramGenerator.Type::name).toList(), "Type of graph layout", true),
-                Parameter.of("blocks", "Blocks in diagram. Should be sorted", true,
+                Parameter.of("blocks", "Blocks in diagram", true,
                         Parameter.of("id", "integer", "Block ID", true),
                         Parameter.of("title", "string", "Title of block", true),
-                        Parameter.of("connection_ids", "array>integer", "Connections from this block to another. Specify other block IDs here", false)
+                        Parameter.of("connectingTo", "array>integer", "Connections from this block to another. Specify other block IDs here", false)
                 )
         );
 
