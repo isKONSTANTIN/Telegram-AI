@@ -80,7 +80,7 @@ public class BotWorker {
                         new DeleteCommand(null),
                         new NewContextCommand(),
                         new SettingsCommand(null),
-                        new StartCommand(null),
+                        new StartCommand(),
                         new AddPresetCommand(null, null, null))
                 .filter((c) -> !c.hidden())
                 .filter((c) -> !c.description().isBlank())

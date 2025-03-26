@@ -16,11 +16,14 @@ import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.scenes.main.MainScene;
 import su.knst.telegram.ai.utils.UserPermission;
 import su.knst.telegram.ai.workers.AiWorker;
+import su.knst.telegram.ai.workers.lang.LangWorker;
 
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
-public class AddPresetCommand extends AbstractCommand {
+import static su.knst.telegram.ai.workers.lang.LangManager.lang;
+
+public class AddPresetCommand extends LanguageAbstractCommand {
     protected ConfigWorker configWorker;
     protected AiWorker aiWorker;
     protected WhitelistManager whitelistManager;
@@ -47,7 +50,7 @@ public class AddPresetCommand extends AbstractCommand {
     }
 
     @Override
-    public void run(String[] strings, NewMessageEvent newMessageEvent) {
+    public void run(LangWorker lang, String[] strings, NewMessageEvent newMessageEvent) {
         if (newMessageEvent.data.chat().type() != Chat.Type.Private) {
             UserPermission permission = whitelistManager.getPermission(newMessageEvent.data.from().id());
 
@@ -72,7 +75,8 @@ public class AddPresetCommand extends AbstractCommand {
         chatHandler.deleteMessage(newMessageEvent.data.messageId());
 
         if (strings.length < 2) {
-            chatHandler.sendMessage(MessageBuilder.text("Usage: <tag> <prompt>"));
+
+            chatHandler.sendMessage(MessageBuilder.text(lang.get("commands.addPreset.usageTip", "Usage: <tag> <prompt>")));
 
             return;
         }
@@ -93,11 +97,11 @@ public class AddPresetCommand extends AbstractCommand {
         );
 
         if (preset.isEmpty()) {
-            chatHandler.sendMessage(MessageBuilder.text("Failed to add new preset"));
+            chatHandler.sendMessage(MessageBuilder.text(lang.get("commands.addPreset.fail", "Failed to add new preset")));
 
             return;
         }
 
-        chatHandler.sendMessage(MessageBuilder.text("Preset added"));
+        chatHandler.sendMessage(MessageBuilder.text(lang.get("commands.addPreset.success", "Preset added")));
     }
 }

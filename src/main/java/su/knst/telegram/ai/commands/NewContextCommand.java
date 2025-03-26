@@ -5,8 +5,9 @@ import app.finwave.tat.handlers.command.AbstractCommand;
 import app.finwave.tat.handlers.scened.ScenedAbstractChatHandler;
 import app.finwave.tat.utils.MessageBuilder;
 import su.knst.telegram.ai.handlers.ChatHandler;
+import su.knst.telegram.ai.workers.lang.LangWorker;
 
-public class NewContextCommand extends AbstractCommand {
+public class NewContextCommand extends LanguageAbstractCommand {
     @Override
     public String name() {
         return "new";
@@ -23,11 +24,11 @@ public class NewContextCommand extends AbstractCommand {
     }
 
     @Override
-    public void run(String[] strings, NewMessageEvent newMessageEvent) {
+    void run(LangWorker lang, String[] strings, NewMessageEvent newMessageEvent) {
         chatHandler.deleteMessage(newMessageEvent.data.messageId());
 
         ((ChatHandler) chatHandler).getMainScene().resetLastContext();
 
-        chatHandler.sendMessage(MessageBuilder.text("New context created"));
+        chatHandler.sendMessage(MessageBuilder.text(lang.get("commands.newContext.success", "New context created")));
     }
 }

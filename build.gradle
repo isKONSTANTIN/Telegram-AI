@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'su.knst.telegram.ai'
-version = '1.9.7'
+version = '2.0.0'
 mainClassName = group + ".Main"
 archivesBaseName = 'Knst-Telegram-AI'
 
@@ -24,7 +24,7 @@ dependencies {
     implementation 'com.ezylang:EvalEx:3.3.0'
 
     implementation 'app.finwave.tat:telegram-abstractions-tools:3.2.8'
-    implementation 'app.finwave.rct:rct:1.0.0'
+    implementation 'app.finwave.rct:rct:1.1.0'
 
     implementation 'com.github.pengrad:java-telegram-bot-api:7.9.1'
 

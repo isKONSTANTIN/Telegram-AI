@@ -1,10 +1,12 @@
 package su.knst.telegram.ai.handlers;
 
+import app.finwave.rct.reactive.property.Property;
 import app.finwave.tat.BotCore;
 import app.finwave.tat.event.chat.NewMessageEvent;
 import app.finwave.tat.handlers.command.AbstractCommand;
 import app.finwave.tat.handlers.scened.ScenedAbstractChatHandler;
 import app.finwave.tat.utils.MessageBuilder;
+import com.pengrad.telegrambot.model.Message;
 import su.knst.telegram.ai.commands.*;
 import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
@@ -18,9 +20,12 @@ import su.knst.telegram.ai.scenes.settings.SettingsScene;
 import su.knst.telegram.ai.utils.UserPermission;
 import su.knst.telegram.ai.workers.AiWorker;
 import su.knst.telegram.ai.workers.BotWorker;
+import su.knst.telegram.ai.workers.lang.LangWorker;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+
+import static su.knst.telegram.ai.workers.lang.LangManager.lang;
 
 public class ChatHandler extends ScenedAbstractChatHandler {
     protected WhitelistManager whitelistManager;
@@ -28,6 +33,7 @@ public class ChatHandler extends ScenedAbstractChatHandler {
 
     protected MainScene mainScene;
     protected boolean presetsInit = false;
+    protected Property<LangWorker> lang = Property.of(lang("en"));
 
     public ChatHandler(BotCore core, long chatId, ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager preferencesManager, WhitelistManager whitelistManager, BotWorker botWorker) {
         super(core, chatId);
@@ -43,7 +49,7 @@ public class ChatHandler extends ScenedAbstractChatHandler {
 
         registerCommand(new AdminCommand(whitelistManager));
         registerCommand(new DebugCommand(configWorker, aiWorker.getMessagesManager()));
-        registerCommand(new StartCommand(configWorker));
+        registerCommand(new StartCommand());
         registerCommand(new SettingsCommand(whitelistManager));
         registerCommand(new NewContextCommand());
         registerCommand(new DeleteCommand(whitelistManager));
@@ -51,9 +57,13 @@ public class ChatHandler extends ScenedAbstractChatHandler {
 
         eventHandler.setValidator((e) -> {
             if (whitelistManager.getPermission(chatId) == UserPermission.UNAUTHORIZED) {
-                sendMessage(MessageBuilder.text("UNAUTHORIZED: " + chatId));
+                sendMessage(MessageBuilder.text(lang.get().get("common.unauthorized", "Unauthorized. Ask admin for access. Chat id: %d").formatted(chatId)));
 
                 return false;
+            }
+
+            if (e.data instanceof Message message) {
+                lang.set(lang(message.from().languageCode()));
             }
 
             if (!presetsInit && aiWorker.getPresetsManager().getPresets(chatId).isEmpty()) {
@@ -77,6 +87,10 @@ public class ChatHandler extends ScenedAbstractChatHandler {
 
     public MainScene getMainScene() {
         return mainScene;
+    }
+
+    public Property<LangWorker> getLang() {
+        return lang;
     }
 
     @Override

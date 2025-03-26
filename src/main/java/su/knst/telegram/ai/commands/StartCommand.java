@@ -11,16 +11,11 @@ import com.pengrad.telegrambot.model.ChatMember;
 import com.pengrad.telegrambot.request.GetChatMember;
 import com.pengrad.telegrambot.response.GetChatMemberResponse;
 import su.knst.telegram.ai.config.ConfigWorker;
+import su.knst.telegram.ai.workers.lang.LangWorker;
 
 import java.util.concurrent.ExecutionException;
 
-public class StartCommand extends AbstractCommand {
-    protected Value<String> startMessage;
-
-    public StartCommand(ConfigWorker configWorker) {
-        this.startMessage = configWorker == null ? Value.wrap("") :configWorker.telegram.map((c) -> c.startMessage);
-    }
-
+public class StartCommand extends LanguageAbstractCommand {
     @Override
     public String name() {
         return "start";
@@ -37,7 +32,7 @@ public class StartCommand extends AbstractCommand {
     }
 
     @Override
-    public void run(String[] args, NewMessageEvent newMessageEvent) {
+    void run(LangWorker lang, String[] strings, NewMessageEvent newMessageEvent) {
         if (newMessageEvent.data.chat().type() != Chat.Type.Private) {
             ChatMember.Status status;
 
@@ -55,7 +50,7 @@ public class StartCommand extends AbstractCommand {
                 return;
         }
 
-        chatHandler.sendMessage(MessageBuilder.text(startMessage.get())).whenComplete((r, t) -> {
+        chatHandler.sendMessage(MessageBuilder.text(lang.get("commands.start.message", "Hello!"))).whenComplete((r, t) -> {
             t.printStackTrace();
             chatHandler.deleteMessage(newMessageEvent.data.messageId());
         });

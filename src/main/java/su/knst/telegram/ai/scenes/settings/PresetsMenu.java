@@ -10,6 +10,7 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.response.BaseResponse;
 import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
+import su.knst.telegram.ai.handlers.ChatHandler;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiPresetsRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
@@ -18,6 +19,7 @@ import su.knst.telegram.ai.utils.menu.AskMenu;
 import su.knst.telegram.ai.utils.EmojiList;
 import su.knst.telegram.ai.utils.menu.TypedAskMenu;
 import su.knst.telegram.ai.workers.AiWorker;
+import su.knst.telegram.ai.workers.lang.LangWorker;
 
 import java.security.InvalidParameterException;
 import java.util.List;
@@ -71,22 +73,25 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
 
     @Override
     public CompletableFuture<? extends BaseResponse> apply() {
+        LangWorker lang = ((ChatHandler) scene.getChatHandler()).getLang().get();
+
         ChatsPreferencesRecord preferences = chatPreferencesManager.getPreferences(scene.getChatHandler().getChatId()).orElseThrow();
 
         layout.removeAll();
 
         if (selectedPresetId != -1) {
-            updateSelectedPreset();
+            updateSelectedPreset(lang);
 
             return super.apply();
         }
 
-        setMessage(MessageBuilder.text("""
-                🎨 Preset Selection Menu 🔧
-
-                Here, you can choose which preset you'd like to edit or configure. Each preset allows you to tailor the AI's behavior to match your specific needs.
-                Select a preset to modify its parameters, such as prompt style, response temperature, and other advanced settings.
-                """));
+        setMessage(MessageBuilder.text(lang.get("scenes.settings.presets.title", """
+                        🎨 Preset Selection Menu 🔧
+        
+                        Here, you can choose which preset you'd like to edit or configure. Each preset allows you to tailor the AI's behavior to match your specific needs.
+                        Select a preset to modify its parameters, such as prompt style, response temperature, and other advanced settings.
+                        """
+        )));
 
         List<AiPresetsRecord> records = aiWorker.getPresetsManager().getPresets(scene.getChatHandler().getChatId());
 
@@ -108,11 +113,11 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
             });
         }
 
-        layout.addButton(new InlineKeyboardButton("New Preset"), 2, (e) -> {
+        layout.addButton(new InlineKeyboardButton(lang.get("scenes.settings.presets.buttons.new", "New Preset")), 2, (e) -> {
             AskMenu promptAsker = new AskMenu(scene);
             AskMenu tagAsker = new AskMenu(scene);
 
-            promptAsker.setText("Adding New Preset", "Enter prompt for new preset")
+            promptAsker.setText(lang.get("scenes.settings.presets.new.title","Adding New Preset"), lang.get("scenes.settings.presets.new.promptEnterDescription","Enter prompt for new preset"))
                     .setResultFunction((s) -> {
                         if (s == null) {
                             apply();
@@ -131,7 +136,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                         return true;
                     });
 
-            tagAsker.setText("Adding New Preset", "Enter tag for new preset")
+            tagAsker.setText(lang.get("scenes.settings.presets.new.title","Adding New Preset"), lang.get("scenes.settings.presets.new.tagEnterDescription","Enter tag for new preset"))
                     .setResultFunction((s) -> {
                         if (s == null) {
                             apply();
@@ -151,12 +156,12 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                     .apply();
         });
 
-        layout.addButton(new InlineKeyboardButton("Back"), 2, backListener);
+        layout.addButton(new InlineKeyboardButton(lang.get("scenes.settings.presets.buttons.back", "Back")), 2, backListener);
 
         return super.apply();
     }
 
-    protected void updateSelectedPreset() {
+    protected void updateSelectedPreset(LangWorker lang) {
         ChatsPreferencesRecord preferences = chatPreferencesManager.getPreferences(scene.getChatHandler().getChatId()).orElseThrow();
 
         AiPresetsRecord record = aiWorker.getPresetsManager().getPresets(scene.getChatHandler().getChatId())
@@ -179,35 +184,66 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
             builder.append(" " + EmojiList.STAR);
 
         String[] tools = model.getIncludedTools();
-        String toolsString = tools.length == 0 ? "Empty" : String.join(", ", tools).replaceAll("_", " ");
+        StringBuilder toolsString = new StringBuilder();
+
+        if (tools.length == 0) {
+            toolsString.append(lang.get("scenes.settings.presets.view.toolsList.empty", "Empty"));
+        }else {
+            for (String tool : tools)
+                toolsString.append(lang.get("scenes.settings.presets.view.toolsList." + tool, tool.replaceAll("_", " "))).append(", ");
+
+            toolsString.delete(toolsString.length() - 2, toolsString.length());
+        }
 
         builder.gap().gap();
-        builder.code().append("prompt").gap().line(record.getText()).code().gap();
+        builder.code().append(lang.get("scenes.settings.presets.view.prompt", "prompt")).gap().line(record.getText()).code().gap();
 
-        builder.line("Parameters:");
-        builder.line(" - Model:");
-        builder.line("      - Name: " + model.getName() + " (" + model.getModel() + ", " + server.name + ")");
-        builder.line("      - Tools: " + toolsString);
-        builder.line("      - Enabled: " + (model.getEnabled() ? "Yes" : "No " + EmojiList.WARNING));
-        builder.line(" - Temperature: " + record.getTemperature());
-        builder.line(" - Top P: " + record.getTopP());
-        builder.line(" - Frequency Penalty: " + record.getFrequencyPenalty());
-        builder.line(" - Presence Penalty: " + record.getPresencePenalty());
-        builder.line(" - Max Tokens: " + record.getMaxTokens());
+        String enabled;
+
+        if (model.getEnabled()) {
+            enabled = lang.get("scenes.settings.presets.view.enabled.yes", "Yes");
+        }else {
+            enabled = lang.get("scenes.settings.presets.view.enabled.no", "No " + EmojiList.WARNING);
+        }
+
+        builder.line(lang.get("scenes.settings.presets.view.parameters", """
+                Parameters:
+                 - Model:
+                      - Name: %s (%s, %s)
+                      - Tools: %s
+                      - Enabled: %s
+                 - Temperature: %.2f
+                 - Top P: %.2f
+                 - Frequency Penalty: %.2f
+                 - Presence Penalty: %.2f
+                 - Max Tokens: %d
+                """
+        ).formatted(
+                model.getName(),
+                model.getModel(),
+                server.name,
+                toolsString,
+                enabled,
+                record.getTemperature(),
+                record.getTopP(),
+                record.getFrequencyPenalty(),
+                record.getPresencePenalty(),
+                record.getMaxTokens()
+        ));
 
         setMessage(builder.build());
 
         List<AiModelsRecord> models = aiWorker.getModelsManager().getModels();
 
         if (!isDefault) {
-            layout.addButton(new InlineKeyboardButton("Set as default"), 2, (e) -> {
+            layout.addButton(new InlineKeyboardButton(lang.get("scenes.settings.presets.buttons.setAsDefault", "Set as default")), 2, (e) -> {
                chatPreferencesManager.setDefaultPreset(scene.getChatHandler().getChatId(), record.getId());
 
                apply();
             });
         }
 
-        layout.addButton(new InlineKeyboardButton("Edit Model"), 1, (e) -> {
+        layout.addButton(new InlineKeyboardButton(lang.get("scenes.settings.presets.buttons.edit", "Edit Model")), 1, (e) -> {
             AskMenu askMenu = new AskMenu(scene);
 
             models.forEach((m) -> {
@@ -215,7 +251,7 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                     askMenu.addAnswer(m.getName(), String.valueOf(m.getId()));
             });
 
-            askMenu.setText("Editing Model of #" + record.getTag(), "")
+            askMenu.setText(lang.get("scenes.settings.presets.editing.title", "Editing Model of #%s").formatted(record.getTag()), "")
                     .setResultFunction((s) -> {
                         if (s == null) {
                             apply();
@@ -249,11 +285,12 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                     .apply();
         });
 
-        addEditingButton("Edit Temperature",
-                "Editing Temperature of #" + record.getTag(),
-                "The temperature parameter controls the degree of randomness in the responses. " +
-                "At a low value (closer to 0), the answers will be more deterministic and conservative. " +
-                "With a high value (closer to 1), the answers will become more diverse and creative.",
+        addEditingButton(lang, lang.get("scenes.settings.presets.editing.buttons.temperature", "Edit Temperature"),
+                lang.get("scenes.settings.presets.editing.temperature.title", "Editing Temperature of #%s").formatted(record.getTag()),
+                lang.get("scenes.settings.presets.editing.temperature.description",
+                        "The temperature parameter controls the degree of randomness in the responses. " +
+                                "At a low value (closer to 0), the answers will be more deterministic and conservative. " +
+                                "With a high value (closer to 1), the answers will become more diverse and creative."),
                 record.getTemperature(),
                 Float::parseFloat,
                 (t) -> aiWorker.getPresetsManager().editPreset(record.getId(),
@@ -268,12 +305,13 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 ).isPresent()
         );
 
-        addEditingButton("Edit Top P",
-                "Editing Top P of #" + record.getTag(),
-                "The Top P (or nucleus sampling) parameter restricts the choice of words based on " +
-                        "the probability of the next word. The model will select among words whose sum of " +
-                        "probabilities is at least the specified value. High values allow you to take into " +
-                        "account a variety of options when choosing words",
+        addEditingButton(lang, lang.get("scenes.settings.presets.editing.buttons.topP", "Edit Top P"),
+                lang.get("scenes.settings.presets.editing.topP.title", "Editing Top P of #%s").formatted(record.getTag()),
+                lang.get("scenes.settings.presets.editing.topP.description",
+                        "The Top P (or nucleus sampling) parameter restricts the choice of words based on " +
+                                "the probability of the next word. The model will select among words whose sum of " +
+                                "probabilities is at least the specified value. High values allow you to take into " +
+                                "account a variety of options when choosing words"),
                 record.getTopP(),
                 Float::parseFloat,
                 (p) -> aiWorker.getPresetsManager().editPreset(record.getId(),
@@ -288,9 +326,10 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 ).isPresent()
         );
 
-        addEditingButton("Edit Frequency Penalty",
-                "Editing Frequency Penalty of #" + record.getTag(),
-                "This parameter imposes a penalty on frequently occurring words. High values force the model to avoid repetition",
+        addEditingButton(lang, lang.get("scenes.settings.presets.editing.buttons.frequencyPenalty", "Edit Frequency Penalty"),
+                lang.get("scenes.settings.presets.editing.frequencyPenalty.title", "Editing Frequency Penalty of #%s").formatted(record.getTag()),
+                lang.get("scenes.settings.presets.editing.frequencyPenalty.description",
+                        "This parameter imposes a penalty on frequently occurring words. High values force the model to avoid repetition"),
                 record.getFrequencyPenalty(),
                 Float::parseFloat,
                 (f) -> aiWorker.getPresetsManager().editPreset(record.getId(),
@@ -305,10 +344,10 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 ).isPresent()
         );
 
-        addEditingButton("Edit Presence Penalty",
-                "Editing Presence Penalty of #" + record.getTag(),
-                "This parameter controls the frequency of occurrence of already used words in the response. High values reduce the likelihood of the same words being used again",
-                record.getPresencePenalty(),
+        addEditingButton(lang, lang.get("scenes.settings.presets.editing.buttons.presencePenalty", "Edit Presence Penalty"),
+                lang.get("scenes.settings.presets.editing.presencePenalty.title", "Editing Presence Penalty of #%s").formatted(record.getTag()),
+                lang.get("scenes.settings.presets.editing.presencePenalty.description",
+                        "This parameter controls the frequency of occurrence of already used words in the response. High values reduce the likelihood of the same words being used again"),record.getPresencePenalty(),
                 Float::parseFloat,
                 (p) -> aiWorker.getPresetsManager().editPreset(record.getId(),
                         model.getId(),
@@ -322,9 +361,10 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 ).isPresent()
         );
 
-        addEditingButton("Edit Max Tokens",
-                "Editing Max Tokens of #" + record.getTag(),
-                "Limits the maximum number of tokens that can be generated in a response",
+        addEditingButton(lang, lang.get("scenes.settings.presets.editing.buttons.maxTokens", "Edit Max Tokens"),
+                lang.get("scenes.settings.presets.editing.maxTokens.title", "Editing Max Tokens of #%s").formatted(record.getTag()),
+                lang.get("scenes.settings.presets.editing.maxTokens.description",
+                        "Limits the maximum number of tokens that can be generated in a response"),
                 record.getMaxTokens(),
                 Integer::parseInt,
                 (t) -> aiWorker.getPresetsManager().editPreset(record.getId(),
@@ -339,9 +379,10 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 ).isPresent()
         );
 
-        addEditingButton("Edit Prompt",
-                "Editing Prompt of #" + record.getTag(),
-                "This parameter allows you to change the behavior of the AI",
+        addEditingButton(lang, lang.get("scenes.settings.presets.editing.buttons.prompt", "Edit Prompt"),
+                lang.get("scenes.settings.presets.editing.prompt.title", "Editing Prompt of #%s").formatted(record.getTag()),
+                lang.get("scenes.settings.presets.editing.prompt.description",
+                        "This parameter allows you to change the behavior of the AI"),
                 record.getText(),
                 (s) -> {
                     if (s.isBlank())
@@ -361,9 +402,10 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
                 ).isPresent()
         );
 
-        addEditingButton("Edit Tag",
-                "Editing Tag of #" + record.getTag(),
-                "This parameter defines the name of the tag that will be searched in the requests to determine the behavior",
+        addEditingButton(lang, lang.get("scenes.settings.presets.editing.buttons.tag", "Edit Tag"),
+                lang.get("scenes.settings.presets.editing.tag.title", "Editing Tag of #%s").formatted(record.getTag()),
+                lang.get("scenes.settings.presets.editing.tag.description",
+                        "This parameter defines the name of the tag that will be searched in the requests to determine the behavior"),
                 null,
                 (s) -> {
                     if (s.isBlank())
@@ -384,12 +426,12 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
         );
 
         if (!isDefault) {
-            layout.addButton(new InlineKeyboardButton("Remove " + EmojiList.CANCEL), 2, (e) -> {
+            layout.addButton(new InlineKeyboardButton(lang.get("scenes.settings.presets.editing.buttons.remove", "Remove " + EmojiList.CANCEL)), 2, (e) -> {
                 AskMenu askMenu = new AskMenu(scene);
 
-                askMenu.addAnswer("I'm sure", "sure");
+                askMenu.addAnswer(lang.get("scenes.settings.presets.editing.delete.sure", "I'm sure"), "sure");
 
-                askMenu.setText("Remove #" + record.getTag() + "?", "")
+                askMenu.setText(lang.get("scenes.settings.presets.editing.delete.question", "Remove #%s?").formatted(record.getTag()), "")
                         .setResultFunction((s) -> {
                             if (s == null || !s.equals("sure")) {
                                 apply();
@@ -408,20 +450,20 @@ public class PresetsMenu extends MessageMenu<FlexListButtonsLayout> {
             });
         }
 
-        layout.addButton(new InlineKeyboardButton("Back"), 2, (e) -> {
+        layout.addButton(new InlineKeyboardButton(lang.get("scenes.settings.presets.editing.buttons.back", "Back")), 2, (e) -> {
             selectedPresetId = -1;
             apply();
         });
     }
 
-    protected <T> void addEditingButton(String buttonTitle, String title, String description, T oldValue, Function<String, T> mapper, Function<T, Boolean> newValueFunction) {
+    protected <T> void addEditingButton(LangWorker lang, String buttonTitle, String title, String description, T oldValue, Function<String, T> mapper, Function<T, Boolean> newValueFunction) {
         layout.addButton(new InlineKeyboardButton(buttonTitle), 1, (e) -> {
             TypedAskMenu<T> menu = new TypedAskMenu<>(scene);
 
             String descriptionWithOld = description;
 
             if (oldValue != null)
-                descriptionWithOld += "\n\n```Old:\n" + oldValue + "```";
+                descriptionWithOld += "\n\n```" + lang.get("scenes.settings.presets.editing.oldValue", "Old:") + "\n" + oldValue + "```";
 
             menu.setText(title, descriptionWithOld);
             menu.setResultFunction((r) -> {

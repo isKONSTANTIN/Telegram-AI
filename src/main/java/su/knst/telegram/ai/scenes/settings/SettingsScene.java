@@ -1,5 +1,6 @@
 package su.knst.telegram.ai.scenes.settings;
 
+import app.finwave.rct.reactive.property.Property;
 import app.finwave.tat.event.chat.NewMessageEvent;
 import app.finwave.tat.handlers.scened.ScenedAbstractChatHandler;
 import app.finwave.tat.menu.FlexListButtonsLayout;
@@ -9,6 +10,7 @@ import app.finwave.tat.utils.MessageBuilder;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import su.knst.telegram.ai.config.ConfigWorker;
+import su.knst.telegram.ai.handlers.ChatHandler;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
 import su.knst.telegram.ai.managers.AiContextManager;
 import su.knst.telegram.ai.managers.ChatPreferencesManager;
@@ -16,6 +18,7 @@ import su.knst.telegram.ai.managers.AiModelsManager;
 import su.knst.telegram.ai.utils.ContextMode;
 import su.knst.telegram.ai.utils.MentionMode;
 import su.knst.telegram.ai.workers.AiWorker;
+import su.knst.telegram.ai.workers.lang.LangWorker;
 
 import java.util.concurrent.ExecutionException;
 
@@ -29,9 +32,12 @@ public class SettingsScene extends BaseScene<NewMessageEvent> {
 
     protected NewMessageEvent sourceEvent;
 
-    public SettingsScene(ScenedAbstractChatHandler chatHandler, ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager preferencesManager) {
+    protected Property<LangWorker> langWorker;
+
+    public SettingsScene(ChatHandler chatHandler, ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager preferencesManager) {
         super(chatHandler);
 
+        this.langWorker = chatHandler.getLang();
         this.aiWorker = aiWorker;
         this.preferencesManager = preferencesManager;
         this.configWorker = configWorker;
@@ -42,6 +48,8 @@ public class SettingsScene extends BaseScene<NewMessageEvent> {
     }
 
     protected void updateMain(boolean newMessage) {
+        var lang = langWorker.get();
+
         mainMenu.setUseLastMessage(!newMessage);
         mainMenu.getLayout().removeAll();
 
@@ -51,9 +59,9 @@ public class SettingsScene extends BaseScene<NewMessageEvent> {
 
         MessageBuilder builder = MessageBuilder.create();
 
-        builder.bold().line("\uD83D\uDEE0 Settings Menu ⚙\uFE0F").bold().gap();
+        builder.bold().line("\uD83D\uDEE0 %s ⚙\uFE0F".formatted(lang.get("scenes.settings.title", "Settings Menu"))).bold().gap();
 
-        builder.line("""
+        builder.line(lang.get("scenes.settings.description", """
                 Here, you can optimize how you interact with your AI Assistant. Let's look at what you can configure:
 
                 🔄 Context Mode Switching:
@@ -62,33 +70,50 @@ public class SettingsScene extends BaseScene<NewMessageEvent> {
 
                 🎨 Preset Configuration:
                 Dive into your preset settings to fine-tune your AI interactions. Customize prompt style, response behavior, and more for a truly personalized experience.
-                """).gap();
+                """
+        )).gap();
 
         if (sourceEvent.data.chat().type() != Chat.Type.Private) {
-            builder.line("Mention Mode: " + (mentionMode == MentionMode.WITH_MENTION ? "With mention of a bot" : "Without mention of a bot"));
+            String mentionString;
 
-            mainMenu.getLayout().addButton(new InlineKeyboardButton("Switch Mention Mode"), 3, (e) -> {
+            if (mentionMode == MentionMode.WITH_MENTION) {
+                mentionString = lang.get("scenes.settings.mentionMode.with", "Mention Mode: With mention of a bot");
+            }else {
+                mentionString = lang.get("scenes.settings.mentionMode.without", "Mention Mode: Without mention of a bot");
+            }
+
+            builder.line(mentionString);
+
+            mainMenu.getLayout().addButton(new InlineKeyboardButton(lang.get("scenes.settings.buttons.switchMention", "Switch Mention Mode")), 3, (e) -> {
                 preferencesManager.setMentionMode(chatId, mentionMode == MentionMode.WITH_MENTION ? MentionMode.WITHOUT_MENTION : MentionMode.WITH_MENTION);
 
                 updateMain(false);
             });
         }
 
-        builder.line("Context Mode: " + (contextMode == ContextMode.MULTI_REPLY ? "Multi" : "Single"));
+        String contextString;
+
+        if (contextMode == ContextMode.MULTI_REPLY) {
+            contextString = lang.get("scenes.settings.contextMode.multi", "Context Mode: Multi");
+        }else {
+            contextString = lang.get("scenes.settings.contextMode.single", "Context Mode: Single");
+        }
+
+        builder.line(contextString);
 
         mainMenu.setMessage(builder.build());
 
-        mainMenu.getLayout().addButton(new InlineKeyboardButton("Switch Context Mode"), 3, (e) -> {
+        mainMenu.getLayout().addButton(new InlineKeyboardButton(lang.get("scenes.settings.buttons.switchContext", "Switch Context Mode")), 3, (e) -> {
             preferencesManager.setContextMode(chatId, contextMode == ContextMode.MULTI_REPLY ? ContextMode.SINGLE : ContextMode.MULTI_REPLY);
 
             updateMain(false);
         });
 
-        mainMenu.getLayout().addButton(new InlineKeyboardButton("Presets"), 6, (e) -> {
+        mainMenu.getLayout().addButton(new InlineKeyboardButton(lang.get("scenes.settings.buttons.presets", "Presets")), 6, (e) -> {
             presetsMenu.apply();
         });
 
-        mainMenu.getLayout().addButton(new InlineKeyboardButton("Back"), 6, (e) -> {
+        mainMenu.getLayout().addButton(new InlineKeyboardButton(lang.get("scenes.settings.buttons.back", "Back")), 6, (e) -> {
             try {
                 mainMenu.setUseLastMessage(true);
                 mainMenu.delete().get();

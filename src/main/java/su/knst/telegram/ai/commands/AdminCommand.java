@@ -7,8 +7,9 @@ import app.finwave.tat.utils.MessageBuilder;
 import com.pengrad.telegrambot.model.Chat;
 import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.utils.UserPermission;
+import su.knst.telegram.ai.workers.lang.LangWorker;
 
-public class AdminCommand extends AbstractCommand {
+public class AdminCommand extends LanguageAbstractCommand {
     protected WhitelistManager whitelistManager;
 
     public AdminCommand(WhitelistManager whitelistManager) {
@@ -36,9 +37,9 @@ public class AdminCommand extends AbstractCommand {
     }
 
     @Override
-    public void run(String[] strings, NewMessageEvent newMessageEvent) {
+    void run(LangWorker lang, String[] strings, NewMessageEvent newMessageEvent) {
         if (newMessageEvent.data.chat().type() != Chat.Type.Private) {
-            chatHandler.sendMessage(MessageBuilder.text("Available only in private chats"));
+            chatHandler.sendMessage(MessageBuilder.text(lang.get("commands.admin.onlyInPrivate", "Available only in private chats")));
 
             return;
         }

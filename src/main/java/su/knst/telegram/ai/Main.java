@@ -12,6 +12,7 @@ import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.logging.LogsInitializer;
 import su.knst.telegram.ai.utils.parsers.Markdown2DocxConverter;
 import su.knst.telegram.ai.workers.BotWorker;
+import su.knst.telegram.ai.workers.lang.LangManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,10 +28,13 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
         ConfigWorker configWorker = new ConfigWorker();
+        LangManager langManager = new LangManager(configWorker);
+
         botToken = configWorker.telegramToken;
 
         INJ = Guice.createInjector(binder -> {
             binder.bind(ConfigWorker.class).toInstance(configWorker);
+            binder.bind(LangManager.class).toInstance(langManager);
         });
 
         LogsInitializer.init();
