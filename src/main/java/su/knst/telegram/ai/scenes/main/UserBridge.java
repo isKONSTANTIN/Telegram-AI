@@ -421,18 +421,16 @@ public class UserBridge {
                     ContentPart.textContentPart(newReactions)
             ));
 
-            if (newReactions.contains("\uD83D\uDC4E")) {
-                AiMessagesRecord lastUserMessage = lastMessage;
+            AiMessagesRecord lastUserMessage = lastMessage;
 
-                List<AiMessagesRecord> userMessages = linkedMessages.stream()
-                        .filter(m -> m.getRole().equals("user"))
-                        .toList();
+            List<AiMessagesRecord> userMessages = linkedMessages.stream()
+                    .filter(m -> m.getRole().equals("user"))
+                    .toList();
 
-                if (!userMessages.isEmpty())
-                    lastUserMessage = userMessages.get(userMessages.size() - 1);
+            if (!userMessages.isEmpty())
+                lastUserMessage = userMessages.get(userMessages.size() - 1);
 
-                scene.askAndAnswer(context.get().getId(), lastUserMessage.getMessageId().intValue()).get();
-            }
+            scene.askAndAnswer(context.get().getId(), lastUserMessage.getMessageId().intValue()).get();
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         } finally {

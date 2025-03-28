@@ -15,6 +15,7 @@ import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.database.ChatsDatabase;
 import su.knst.telegram.ai.database.DatabaseWorker;
+import su.knst.telegram.ai.handlers.ChatHandler;
 import su.knst.telegram.ai.jooq.tables.records.AiContextsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
@@ -187,7 +188,7 @@ public class AiWorker {
                 .toList();
     }
 
-    protected FunctionResult runTool(ToolCall.FunctionToolCall functionCall, long contextId, long chatId) {
+    protected FunctionResult runTool(ToolCall.FunctionToolCall functionCall, long contextId, ChatHandler source) {
         Gson g = GSON
                 .newBuilder()
                 .registerTypeAdapter(new TypeToken<Map<String, String>>(){}.getType(), new ArrayDeserializer())
@@ -202,24 +203,24 @@ public class AiWorker {
             return new FunctionError("Function call failed: invalid arguments json");
         }
 
-        return aiTools.run(name, chatId, contextId, args);
+        return aiTools.run(name, source, contextId, args);
     }
 
-    protected boolean runTools(List<ToolCall> calls, long contextId, long chatId, Consumer<ContextUpdate> updatesConsumer) {
+    protected boolean runTools(List<ToolCall> calls, long contextId, ChatHandler source, Consumer<ContextUpdate> updatesConsumer) {
         List<ContextUpdate> updates = calls.stream()
                 .filter(c -> c instanceof ToolCall.FunctionToolCall)
                 .map((c) -> {
                     FunctionResult result;
 
                     try {
-                        result = runTool((ToolCall.FunctionToolCall) c, contextId, chatId);
+                        result = runTool((ToolCall.FunctionToolCall) c, contextId, source);
                     }catch (Exception e) {
                         result = new FunctionError("Function call failed: unknown error");
                     }
 
                     return Pair.of(result, c.id());
                 })
-                .map(r -> new ContextUpdate(contextId, chatId, null, r.first(), r.second()))
+                .map(r -> new ContextUpdate(contextId, source.getChatId(), null, r.first(), r.second()))
                 .toList();
 
         updates.forEach(updatesConsumer);
@@ -227,12 +228,14 @@ public class AiWorker {
         return !updates.isEmpty();
     }
 
-    protected void ask(long contextId, long chatId, AiPresetsRecord preset, AiModelsRecord model, Consumer<ContextUpdate> updatesConsumer) {
+    protected void ask(long contextId, ChatHandler source, AiPresetsRecord preset, AiModelsRecord model, Consumer<ContextUpdate> updatesConsumer) {
+        long chatId = source.getChatId();
+
         List<AiMessagesRecord> messages = messagesManager.getMessages(contextId);
         List<ToolCall> undoneRequests = checkUndoneRequests(messages);
 
         if (!undoneRequests.isEmpty())
-            runTools(undoneRequests, contextId, chatId, updatesConsumer);
+            runTools(undoneRequests, contextId, source, updatesConsumer);
 
         ChatCompletion chatCompletion = servers.get().get(model.getServer())
                 .chatClient()
@@ -245,11 +248,11 @@ public class AiWorker {
 
         updatesConsumer.accept(new ContextUpdate(contextId, chatId, message, null, null));
 
-        if (message.toolCalls() != null && runTools(message.toolCalls(), contextId, chatId, updatesConsumer))
-            ask(contextId, chatId, preset, model, updatesConsumer);
+        if (message.toolCalls() != null && runTools(message.toolCalls(), contextId, source, updatesConsumer))
+            ask(contextId, source, preset, model, updatesConsumer);
     }
 
-    public CompletableFuture<Boolean> ask(long contextId, long chatId, Consumer<ContextUpdate> updatesConsumer) {
+    public CompletableFuture<Boolean> ask(long contextId, ChatHandler source, Consumer<ContextUpdate> updatesConsumer) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
 
         AiContextsRecord contextRecord = contextManager.getContext(contextId).orElseThrow();
@@ -262,11 +265,11 @@ public class AiWorker {
             return result;
         }
 
-        log.debug("AI asking in #{} context for chat #{}", contextId, chatId);
+        log.debug("AI asking in #{} context for chat #{}", contextId, source.getChatId());
 
         executor.execute(() -> {
             try {
-                ask(contextId, chatId, preset, modelsRecord, updatesConsumer);
+                ask(contextId, source, preset, modelsRecord, updatesConsumer);
                 result.complete(true);
             }catch (Throwable t) {
                 result.completeExceptionally(t);

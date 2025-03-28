@@ -12,6 +12,7 @@ import com.pengrad.telegrambot.request.SendDocument;
 import com.pengrad.telegrambot.request.SendPhoto;
 import io.github.stefanbratanov.jvm.openai.OpenAIException;
 import su.knst.telegram.ai.Main;
+import su.knst.telegram.ai.handlers.ChatHandler;
 import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsPreferencesRecord;
 import su.knst.telegram.ai.managers.ChatPreferencesManager;
@@ -71,7 +72,7 @@ public class MainScene extends BaseScene<NewMessageEvent> {
     }
 
     public CompletableFuture<Boolean> askAndAnswer(long contextId, int replyTo) {
-        CompletableFuture<Boolean> future = aiWorker.ask(contextId, chatId, (u) -> {
+        CompletableFuture<Boolean> future = aiWorker.ask(contextId, (ChatHandler) chatHandler, (u) -> {
             try {
                 aiBridge.contextUpdate(u, replyTo);
             } catch (ExecutionException | InterruptedException e) {
