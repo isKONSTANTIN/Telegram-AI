@@ -86,6 +86,10 @@ public class AiModelsManager {
         return database.getModelUsage(modelId, date);
     }
 
+    public List<Pair<Integer, Usage>> getUserUsage(long chatId, LocalDate date) {
+        return database.getModelsUsage(chatId, date);
+    }
+
     public Optional<AiModelsRecord> editModel(int modelId, short server, String name, String model, String[] tools) {
         Optional<AiModelsRecord> result = database.editModel(modelId, server, name, model, tools);
 

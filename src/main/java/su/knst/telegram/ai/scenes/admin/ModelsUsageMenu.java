@@ -14,6 +14,7 @@ import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsRecord;
 import su.knst.telegram.ai.managers.AiModelsManager;
 import su.knst.telegram.ai.managers.WhitelistManager;
+import su.knst.telegram.ai.utils.MessageUtils;
 import su.knst.telegram.ai.utils.menu.AskMenu;
 
 import java.math.BigDecimal;
@@ -24,6 +25,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
+import static su.knst.telegram.ai.utils.MessageUtils.appendBar;
 
 public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
     protected int modelId = -1;
@@ -111,20 +114,7 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         this.usage.sort(Comparator.comparingInt(p -> -p.second().totalTokens()));
     }
 
-    protected void appendBar(MessageBuilder builder, float percent, int size) {
-        int filled = Math.round(percent * size);
-        boolean lastFullFilled = filled - Math.round(percent * size * 10) / 10f < 0 || filled == Math.round(percent * size * 10) / 10f;
 
-        builder.append("║");
-
-        for (int i = 0; i < filled; i++)
-            builder.append(i != filled - 1 || lastFullFilled ? "▓" : "▒");
-
-        for (int i = 0; i < size - filled; i++)
-            builder.append("░");
-
-        builder.append("║");
-    }
 
     public void refresh() {
         modelId = -1;
@@ -171,12 +161,12 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
 
             builder.fixedWidth().append("Completion: ").fixedWidth();
             float percent = (float) chatUsage.completionTokens() / totalUsage.completionTokens();
-            appendBar(builder, percent, 15);
+            MessageUtils.appendBar(builder, percent, 15);
             builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + chatUsage.completionTokens() + ", $" + completionCost).gap();
 
             builder.fixedWidth().append("Prompt:     ").fixedWidth();
             percent = (float) chatUsage.promptTokens() / totalUsage.promptTokens();
-            appendBar(builder, percent, 15);
+            MessageUtils.appendBar(builder, percent, 15);
             builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + chatUsage.promptTokens() + ", $" + promptCost)
                     .gap().gap();
         }

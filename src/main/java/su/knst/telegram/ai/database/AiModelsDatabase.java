@@ -89,6 +89,22 @@ public class AiModelsDatabase extends AbstractDatabase {
                 ));
     }
 
+    public List<Pair<Integer, Usage>> getModelsUsage(long chatId, LocalDate date) {
+        LocalDate start = date.withDayOfMonth(1);
+        LocalDate end = date.withDayOfMonth(date.getMonth().length(date.isLeapYear()));
+
+        return context.select(sum(AI_MODELS_USAGE.COMPLETION_TOKENS_USED), sum(AI_MODELS_USAGE.PROMPT_TOKENS_USED), AI_MODELS_USAGE.MODEL)
+                .from(AI_MODELS_USAGE)
+                .where(AI_MODELS_USAGE.CHAT_ID.eq(chatId)
+                        .and(AI_MODELS_USAGE.DATE.between(start, end)))
+                .groupBy(month(AI_MODELS_USAGE.DATE), AI_MODELS_USAGE.MODEL)
+                .fetch()
+                .map(r -> Pair.of(
+                        r.component3(),
+                        new Usage(r.component1().intValue(), r.component2().intValue(), r.component1().add(r.component2()).intValue())
+                ));
+    }
+
     public Usage addUsage(int modelId, long chatId, LocalDate date, Usage usage) {
         Optional<AiModelsUsageRecord> recordOptional = context.transactionResult((configuration) -> {
             DSLContext dsl = configuration.dsl();

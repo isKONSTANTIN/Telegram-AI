@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 public class SettingsScene extends BaseScene<NewMessageEvent> {
     protected MessageMenu<FlexListButtonsLayout> mainMenu;
     protected PresetsMenu presetsMenu;
+    protected UserUsageMenu userUsageMenu;
 
     protected AiWorker aiWorker;
     protected ChatPreferencesManager preferencesManager;
@@ -45,6 +46,7 @@ public class SettingsScene extends BaseScene<NewMessageEvent> {
         mainMenu = new MessageMenu<>(this, new FlexListButtonsLayout(6));
 
         presetsMenu = new PresetsMenu(this, (e) -> updateMain(false), aiWorker, preferencesManager, configWorker);
+        userUsageMenu = new UserUsageMenu(this, (e) -> updateMain(false), aiWorker.getModelsManager());
     }
 
     protected void updateMain(boolean newMessage) {
@@ -111,6 +113,10 @@ public class SettingsScene extends BaseScene<NewMessageEvent> {
 
         mainMenu.getLayout().addButton(new InlineKeyboardButton(lang.get("scenes.settings.buttons.presets", "Presets")), 6, (e) -> {
             presetsMenu.apply();
+        });
+
+        mainMenu.getLayout().addButton(new InlineKeyboardButton(lang.get("scenes.settings.buttons.usage", "Usage")), 6, (e) -> {
+            userUsageMenu.applyWithReset();
         });
 
         mainMenu.getLayout().addButton(new InlineKeyboardButton(lang.get("scenes.settings.buttons.back", "Back")), 6, (e) -> {
