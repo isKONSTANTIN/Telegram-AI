@@ -128,7 +128,7 @@ public class UserUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         return super.apply();
     }
 
-    protected static class UsageWithCost implements Comparator<UsageWithCost> {
+    protected static class UsageWithCost implements Comparable<UsageWithCost> {
         public final Usage usage;
         public final AiModelsRecord model;
         public final BigDecimal totalCost;
@@ -151,8 +151,8 @@ public class UserUsageMenu extends MessageMenu<FlexListButtonsLayout> {
         }
 
         @Override
-        public int compare(UsageWithCost o1, UsageWithCost o2) {
-            return o1.totalCost.compareTo(o2.totalCost);
+        public int compareTo(UsageWithCost o) {
+            return totalCost.compareTo(o.totalCost);
         }
     }
 }
