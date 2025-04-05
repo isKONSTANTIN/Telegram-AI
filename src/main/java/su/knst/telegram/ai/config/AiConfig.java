@@ -9,7 +9,21 @@ public class AiConfig {
     public Model defaultModel = new Model();
     public FilenameGeneration filenameGeneration = new FilenameGeneration();
     public ImagineSettings imagineSettings = new ImagineSettings();
+    public MemorizingSettings memorizingSettings = new MemorizingSettings();
+
     public Cache cache = new Cache();
+
+    public static class MemorizingSettings {
+        public int serverIndexToUse = 0;
+        public String model = "gpt-4o-mini";
+        public Preset preset = new Preset(
+                "Create concise internal notes for yourself, summarizing key conversation points to retain context for future interactions. Aim to shorten previous memories, and note that these original messages will no longer be included in the context.",
+                0.2f, 1.0f, 0.0f,0.0f, 500
+        );
+
+        public int keepMessagesInContext = 15;
+        public int messagesPerMemorizing = 10;
+    }
 
     public static class ImagineSettings {
         public int serverIndexToUse = 0;

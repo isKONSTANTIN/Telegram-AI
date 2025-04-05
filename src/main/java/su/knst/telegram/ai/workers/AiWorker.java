@@ -13,13 +13,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
+import su.knst.telegram.ai.database.AiMemoriesDatabase;
 import su.knst.telegram.ai.database.ChatsDatabase;
 import su.knst.telegram.ai.database.DatabaseWorker;
 import su.knst.telegram.ai.handlers.ChatHandler;
-import su.knst.telegram.ai.jooq.tables.records.AiContextsRecord;
-import su.knst.telegram.ai.jooq.tables.records.AiMessagesRecord;
-import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
-import su.knst.telegram.ai.jooq.tables.records.AiPresetsRecord;
+import su.knst.telegram.ai.jooq.tables.records.*;
 import su.knst.telegram.ai.managers.AiContextManager;
 import su.knst.telegram.ai.managers.AiMessagesManager;
 import su.knst.telegram.ai.managers.AiModelsManager;
@@ -32,6 +30,7 @@ import su.knst.telegram.ai.utils.functions.FunctionResult;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -55,6 +54,7 @@ public class AiWorker {
     protected AiModelsManager modelsManager;
 
     protected ChatsDatabase chatsDatabase;
+    protected AiMemoriesDatabase memoriesDatabase;
 
     protected Value<List<OpenAI>> servers;
 
@@ -72,6 +72,7 @@ public class AiWorker {
         this.modelsManager = modelsManager;
 
         this.chatsDatabase = databaseWorker.get(ChatsDatabase.class);
+        this.memoriesDatabase = databaseWorker.get(AiMemoriesDatabase.class);
 
         this.servers = config.map((c) ->
                 Arrays.stream(c.servers).map((s) -> {
@@ -228,10 +229,20 @@ public class AiWorker {
         return !updates.isEmpty();
     }
 
-    protected void ask(long contextId, ChatHandler source, AiPresetsRecord preset, AiModelsRecord model, Consumer<ContextUpdate> updatesConsumer) {
+    protected void ask(long contextId, ChatHandler source, boolean useMemories, AiPresetsRecord preset, AiModelsRecord model, Consumer<ContextUpdate> updatesConsumer) {
         long chatId = source.getChatId();
 
         List<AiMessagesRecord> messages = messagesManager.getMessages(contextId);
+        String includeMemory = null;
+
+        if (useMemories) {
+            Optional<AiContextMemoriesRecord> lastMemory = memoriesDatabase.getLastMemory(contextId);
+            includeMemory = lastMemory.map(AiContextMemoriesRecord::getMemory).orElse(null);
+            long lastSavedMessage = lastMemory.map(AiContextMemoriesRecord::getLastMessage).orElse(0L);
+
+            messages = messages.stream().filter(m -> m.getId() > lastSavedMessage).toList();
+        }
+
         List<ToolCall> undoneRequests = checkUndoneRequests(messages);
 
         if (!undoneRequests.isEmpty())
@@ -239,7 +250,7 @@ public class AiWorker {
 
         ChatCompletion chatCompletion = servers.get().get(model.getServer())
                 .chatClient()
-                .createChatCompletion(createChatCompletionRequest(messages, preset, model));
+                .createChatCompletion(createChatCompletionRequest(messages, preset, model, includeMemory));
 
         Usage usage = chatCompletion.usage();
         ChatCompletion.Choice.Message message = chatCompletion.choices().get(0).message();
@@ -248,11 +259,36 @@ public class AiWorker {
 
         updatesConsumer.accept(new ContextUpdate(contextId, chatId, message, null, null));
 
-        if (message.toolCalls() != null && runTools(message.toolCalls(), contextId, source, updatesConsumer))
-            ask(contextId, source, preset, model, updatesConsumer);
+        if (message.toolCalls() != null && runTools(message.toolCalls(), contextId, source, updatesConsumer)) {
+            ask(contextId, source, true, preset, model, updatesConsumer);
+            return;
+        }
+
+        if (!useMemories)
+            return;
+
+        AiConfig.MemorizingSettings settings = config.get().memorizingSettings;
+        long commonSenseMessagesCount = messages.stream().filter((m -> m.getRole().equals("user") || m.getRole().equals("assistant"))).count();
+
+        if (commonSenseMessagesCount - settings.messagesPerMemorizing < settings.keepMessagesInContext)
+            return;
+
+        List<AiMessagesRecord> toMemorize = messages.subList(0, settings.messagesPerMemorizing);
+
+        if (messages.get(settings.messagesPerMemorizing).getRole().equals("tool"))
+            toMemorize = toMemorize.subList(0, toMemorize.size() - 1);
+
+        var memory = createMemory(toMemorize, includeMemory);
+
+        List<AiMessagesRecord> finalToMemorize = toMemorize;
+        try {
+            memory.thenAccept((m) -> memoriesDatabase.addMemory(contextId, finalToMemorize.get(finalToMemorize.size() - 1).getId(), m)).get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
     }
 
-    public CompletableFuture<Boolean> ask(long contextId, ChatHandler source, Consumer<ContextUpdate> updatesConsumer) {
+    public CompletableFuture<Boolean> ask(long contextId, ChatHandler source, boolean useMemories, Consumer<ContextUpdate> updatesConsumer) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
 
         AiContextsRecord contextRecord = contextManager.getContext(contextId).orElseThrow();
@@ -269,7 +305,7 @@ public class AiWorker {
 
         executor.execute(() -> {
             try {
-                ask(contextId, source, preset, modelsRecord, updatesConsumer);
+                ask(contextId, source, useMemories, preset, modelsRecord, updatesConsumer);
                 result.complete(true);
             }catch (Throwable t) {
                 result.completeExceptionally(t);
@@ -333,14 +369,124 @@ public class AiWorker {
                 .createImageAsync(builder.build());
     }
 
-    protected CreateChatCompletionRequest createChatCompletionRequest(List<AiMessagesRecord> messages, AiPresetsRecord preset, AiModelsRecord modelRecord) {
+    protected CompletableFuture<String> createMemory(List<AiMessagesRecord> messages, String lastMemory) {
+        StringBuilder messagesBuilder = new StringBuilder();
+
+        if (lastMemory != null && !lastMemory.isBlank())
+            messagesBuilder.append("Previous memory: \"").append(lastMemory).append("\"\n\n");
+
+        messages.forEach((m) -> {
+            messagesBuilder.append(m.getRole()).append(": \"");
+            List<Object> content = jsonToContent(m.getContent());
+
+            switch (m.getRole()) {
+                case "system" -> {
+                    messagesBuilder.append(content
+                            .stream()
+                            .filter((o) -> o instanceof ContentPart.TextContentPart)
+                            .map((o) -> ((ContentPart.TextContentPart) o).text())
+                            .findFirst()
+                            .orElseThrow()
+                    ).append("\"\n\n");
+                }
+                case "user" -> {
+                    Optional<String> text = content
+                            .stream()
+                            .filter((o) -> o instanceof ContentPart.TextContentPart)
+                            .map((o) -> ((ContentPart.TextContentPart) o).text())
+                            .findFirst();
+
+                    text.ifPresent(string -> messagesBuilder.append(string).append("\n"));
+
+                    List<String> images = jsonToContent(m.getContent())
+                            .stream()
+                            .filter((o) -> o instanceof ContentPart.ImageUrlContentPart)
+                            .map((o) -> ((ContentPart.ImageUrlContentPart) o).imageUrl().url())
+                            .toList();
+
+                    for (String image : images) {
+                        messagesBuilder.append("<added image with url: ").append(image).append(">\n");
+                    }
+
+                    messagesBuilder.append("\"\n");
+                }
+                case "assistant" -> {
+                    Optional<String> text = content
+                            .stream()
+                            .filter((o) -> o instanceof ContentPart.TextContentPart)
+                            .map((o) -> (ContentPart.TextContentPart) o)
+                            .findFirst()
+                            .map(ContentPart.TextContentPart::text);
+
+                    Optional<ContentMeta> meta = content
+                            .stream()
+                            .filter((o) -> o instanceof ContentMeta)
+                            .map((o) -> (ContentMeta) o)
+                            .findFirst();
+
+                    List<ToolCall.FunctionToolCall> functionToolCalls = null;
+
+                    if (meta.isPresent()) {
+                        functionToolCalls = meta.get().toolCalls()
+                                .stream()
+                                .filter((e) -> e.getAsJsonObject().asMap().containsKey("function"))
+                                .map((e) -> GSON.fromJson(e, ToolCall.FunctionToolCall.class))
+                                .toList();
+                    }
+
+
+                    text.ifPresent(string -> messagesBuilder.append(string).append("\n"));
+
+                    if (functionToolCalls != null && !functionToolCalls.isEmpty()) {
+                        for (ToolCall.FunctionToolCall functionToolCall : functionToolCalls) {
+                            messagesBuilder.append("<called tool: ").append(functionToolCall.function().name()).append(" with params: ").append(functionToolCall.function().arguments()).append(">\n");
+                        }
+                    }
+
+                    messagesBuilder.append("\"\n");
+                }
+                case "tool" -> {
+                    ContentPart.TextContentPart textContentPart = content
+                            .stream()
+                            .filter((o) -> o instanceof ContentPart.TextContentPart)
+                            .map((o) -> (ContentPart.TextContentPart) o)
+                            .findFirst()
+                            .orElseThrow();
+
+                    messagesBuilder.append(textContentPart.text()).append("\"\n\n");
+                }
+            }
+
+        });
+
+        AiConfig.MemorizingSettings settings = config.get().memorizingSettings;
+
+        CreateChatCompletionRequest.Builder builder = CreateChatCompletionRequest.newBuilder();
+
+        builder.model(settings.model)
+                .message(ChatMessage.systemMessage(settings.preset.prompt))
+                .message(ChatMessage.userMessage(messagesBuilder.toString()))
+                .temperature(settings.preset.temperature)
+                .maxTokens(settings.preset.maxTokens)
+                .topP(settings.preset.topP)
+                .frequencyPenalty(settings.preset.frequencyPenalty)
+                .presencePenalty(settings.preset.presencePenalty);
+
+        CreateChatCompletionRequest chatCompletionRequest = builder.build();
+
+        return servers.get().get(settings.serverIndexToUse).chatClient()
+                .createChatCompletionAsync(chatCompletionRequest)
+                .thenApply((r) -> r.choices().get(0).message().content());
+    }
+
+    protected CreateChatCompletionRequest createChatCompletionRequest(List<AiMessagesRecord> messages, AiPresetsRecord preset, AiModelsRecord modelRecord, String lastMemory) {
         CreateChatCompletionRequest.Builder builder = CreateChatCompletionRequest.newBuilder();
 
         builder.tools(Arrays.stream(modelRecord.getIncludedTools())
                 .map(toolsMap::get)
                 .toList());
 
-        builder.messages(new ChatMessagesBuilder(messages).build())
+        builder.messages(new ChatMessagesBuilder(messages, lastMemory).build())
                 .model(modelRecord.getModel())
                 .temperature(preset.getTemperature())
                 .maxTokens(preset.getMaxTokens())

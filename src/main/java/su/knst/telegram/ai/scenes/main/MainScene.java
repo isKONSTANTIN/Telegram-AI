@@ -72,7 +72,7 @@ public class MainScene extends BaseScene<NewMessageEvent> {
     }
 
     public CompletableFuture<Boolean> askAndAnswer(long contextId, int replyTo) {
-        CompletableFuture<Boolean> future = aiWorker.ask(contextId, (ChatHandler) chatHandler, (u) -> {
+        CompletableFuture<Boolean> future = aiWorker.ask(contextId, (ChatHandler) chatHandler, preferences.getContextsMode() == ContextMode.SINGLE.ordinal(), (u) -> {
             try {
                 aiBridge.contextUpdate(u, replyTo);
             } catch (ExecutionException | InterruptedException e) {

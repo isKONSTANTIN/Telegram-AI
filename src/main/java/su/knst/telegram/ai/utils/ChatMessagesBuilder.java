@@ -14,9 +14,11 @@ import static su.knst.telegram.ai.utils.ContentPartParser.jsonToContent;
 
 public class ChatMessagesBuilder {
     protected ArrayList<AiMessagesRecord> messagesRecords = new ArrayList<>();
+    protected String memory;
 
-    public ChatMessagesBuilder(List<AiMessagesRecord> messages) {
+    public ChatMessagesBuilder(List<AiMessagesRecord> messages, String memory) {
         this.messagesRecords.addAll(messages);
+        this.memory = memory;
     }
 
     public ChatMessagesBuilder append(AiMessagesRecord record) {
@@ -104,8 +106,17 @@ public class ChatMessagesBuilder {
     }
 
     public List<ChatMessage> build() {
-        return messagesRecords.stream()
-                .map(this::buildMessage)
-                .toList();
+        ArrayList<ChatMessage> messages = new ArrayList<>();
+
+        if (memory != null && !memory.isBlank())
+            messages.add(ChatMessage.systemMessage("Your last memory: " + memory));
+
+        messages.addAll(
+                messagesRecords.stream()
+                        .map(this::buildMessage)
+                        .toList()
+        );
+
+        return messages;
     }
 }
