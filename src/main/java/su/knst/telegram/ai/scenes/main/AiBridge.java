@@ -224,7 +224,7 @@ public class AiBridge {
                         Path tmpFile = Files.createTempFile(Path.of("/","tmp","/"), "knst_ai_response_",".txt");
                         Files.write(tmpFile, bytes);
 
-                        sendFileAndLinkContext(tmpFile.toFile(), "failed_response.txt", aiMessage, replyTo).get();
+                        sendFileAndLinkContext(tmpFile.toFile(), "broken_formatting.txt", aiMessage, replyTo).get();
                     } catch (IOException | ExecutionException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }

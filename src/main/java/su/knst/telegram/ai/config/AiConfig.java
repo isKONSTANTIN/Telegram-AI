@@ -93,5 +93,6 @@ public class AiConfig {
         public int maxPresets = 500;
         public int maxMessages = 1000;
         public int maxModels = 50;
+        public int maxMemories = 500;
     }
 }

@@ -13,15 +13,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import su.knst.telegram.ai.config.AiConfig;
 import su.knst.telegram.ai.config.ConfigWorker;
-import su.knst.telegram.ai.database.AiMemoriesDatabase;
-import su.knst.telegram.ai.database.ChatsDatabase;
 import su.knst.telegram.ai.database.DatabaseWorker;
 import su.knst.telegram.ai.handlers.ChatHandler;
 import su.knst.telegram.ai.jooq.tables.records.*;
-import su.knst.telegram.ai.managers.AiContextManager;
-import su.knst.telegram.ai.managers.AiMessagesManager;
-import su.knst.telegram.ai.managers.AiModelsManager;
-import su.knst.telegram.ai.managers.AiPresetsManager;
+import su.knst.telegram.ai.managers.*;
 import su.knst.telegram.ai.utils.ArrayDeserializer;
 import su.knst.telegram.ai.utils.ChatMessagesBuilder;
 import su.knst.telegram.ai.utils.ContentMeta;
@@ -53,13 +48,12 @@ public class AiWorker {
     protected AiPresetsManager presetsManager;
     protected AiModelsManager modelsManager;
 
-    protected ChatsDatabase chatsDatabase;
-    protected AiMemoriesDatabase memoriesDatabase;
+    protected AiMemoryManager memoryManager;
 
     protected Value<List<OpenAI>> servers;
 
     @Inject
-    public AiWorker(ConfigWorker configWorker, AiContextManager contextManager, AiMessagesManager messagesManager, AiPresetsManager presetsManager, AiModelsManager modelsManager, DatabaseWorker databaseWorker, AiTools aiTools) {
+    public AiWorker(ConfigWorker configWorker, AiContextManager contextManager, AiMemoryManager memoryManager, AiMessagesManager messagesManager, AiPresetsManager presetsManager, AiModelsManager modelsManager, AiTools aiTools) {
         this.config = configWorker.ai;
 
         this.aiTools = aiTools;
@@ -70,9 +64,7 @@ public class AiWorker {
         this.messagesManager = messagesManager;
         this.presetsManager = presetsManager;
         this.modelsManager = modelsManager;
-
-        this.chatsDatabase = databaseWorker.get(ChatsDatabase.class);
-        this.memoriesDatabase = databaseWorker.get(AiMemoriesDatabase.class);
+        this.memoryManager = memoryManager;
 
         this.servers = config.map((c) ->
                 Arrays.stream(c.servers).map((s) -> {
@@ -236,7 +228,7 @@ public class AiWorker {
         String includeMemory = null;
 
         if (useMemories) {
-            Optional<AiContextMemoriesRecord> lastMemory = memoriesDatabase.getLastMemory(contextId);
+            Optional<AiContextMemoriesRecord> lastMemory = memoryManager.getLastMemory(contextId);
             includeMemory = lastMemory.map(AiContextMemoriesRecord::getMemory).orElse(null);
             long lastSavedMessage = lastMemory.map(AiContextMemoriesRecord::getLastMessage).orElse(0L);
 
@@ -282,7 +274,7 @@ public class AiWorker {
 
         List<AiMessagesRecord> finalToMemorize = toMemorize;
         try {
-            memory.thenAccept((m) -> memoriesDatabase.addMemory(contextId, finalToMemorize.get(finalToMemorize.size() - 1).getId(), m)).get();
+            memory.thenAccept((m) -> memoryManager.addMemory(contextId, finalToMemorize.get(finalToMemorize.size() - 1).getId(), m)).get();
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
         }
