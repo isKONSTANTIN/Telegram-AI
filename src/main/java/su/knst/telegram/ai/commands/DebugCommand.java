@@ -66,7 +66,7 @@ public class DebugCommand extends AbstractCommand {
             return;
         }
 
-        if (newMessageEvent.chatId != superAdminId) {
+        if (newMessageEvent.chatId != superAdminId && newMessageEvent.data.from().id() != superAdminId) {
             if (strings.length == 0)
                 return;
 
@@ -74,8 +74,11 @@ public class DebugCommand extends AbstractCommand {
                 return;
         }
 
-        if (toDebug == null)
+        if (toDebug == null) {
+            sendMessage("toDebug is empty!", newMessageEvent.chatId);
+
             return;
+        }
 
         var message = messagesManager.getMessage(toDebug.chat().id(), toDebug.messageId());
 

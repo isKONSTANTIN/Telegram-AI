@@ -22,6 +22,9 @@ public class LangManager {
     }
 
     public LangWorker getCachedWorker(String code) {
+        if (code == null)
+            return defaultLangWorker;
+
         code = code.toLowerCase();
 
         if (!rootNode.exists(code))
