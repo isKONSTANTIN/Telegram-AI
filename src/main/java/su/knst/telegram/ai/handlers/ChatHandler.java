@@ -13,6 +13,7 @@ import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiPresetsRecord;
 import su.knst.telegram.ai.managers.ChatPreferencesManager;
+import su.knst.telegram.ai.managers.UsageManager;
 import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.scenes.admin.AdminScene;
 import su.knst.telegram.ai.scenes.main.MainScene;
@@ -35,7 +36,7 @@ public class ChatHandler extends ScenedAbstractChatHandler {
     protected boolean presetsInit = false;
     protected Property<LangWorker> lang = Property.of(lang("en"));
 
-    public ChatHandler(BotCore core, long chatId, ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager preferencesManager, WhitelistManager whitelistManager, BotWorker botWorker) {
+    public ChatHandler(BotCore core, long chatId, ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager preferencesManager, WhitelistManager whitelistManager, UsageManager usageManager) {
         super(core, chatId);
 
         this.whitelistManager = whitelistManager;
@@ -45,7 +46,7 @@ public class ChatHandler extends ScenedAbstractChatHandler {
 
         registerScene("main", mainScene);
         registerScene("settings", new SettingsScene(this, configWorker, aiWorker, preferencesManager));
-        registerScene("admin", new AdminScene(this, aiWorker, whitelistManager, botWorker, configWorker));
+        registerScene("admin", new AdminScene(this, aiWorker, whitelistManager, usageManager, configWorker));
 
         registerCommand(new AdminCommand(whitelistManager));
         registerCommand(new DebugCommand(configWorker, aiWorker.getMessagesManager()));

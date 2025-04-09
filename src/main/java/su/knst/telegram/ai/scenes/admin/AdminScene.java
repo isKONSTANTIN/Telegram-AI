@@ -10,6 +10,7 @@ import app.finwave.tat.utils.MessageBuilder;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import su.knst.telegram.ai.config.ConfigWorker;
 import su.knst.telegram.ai.managers.AiModelsManager;
+import su.knst.telegram.ai.managers.UsageManager;
 import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.utils.UserPermission;
 import su.knst.telegram.ai.workers.AiWorker;
@@ -20,16 +21,18 @@ import java.util.concurrent.ExecutionException;
 public class AdminScene extends BaseScene<Object> {
     protected WhitelistManager whitelistManager;
     protected AiModelsManager modelsManager;
+    protected UsageManager usageManager;
 
     protected MessageMenu<FlexListButtonsLayout> menu;
     protected WhitelistMenu whitelistMenu;
     protected ModelsUsageMenu modelsUsageMenu;
     protected ModelsMenu modelsMenu;
 
-    public AdminScene(ScenedAbstractChatHandler chatHandler, AiWorker aiWorker, WhitelistManager whitelistManager, BotWorker botWorker, ConfigWorker configWorker) {
+    public AdminScene(ScenedAbstractChatHandler chatHandler, AiWorker aiWorker, WhitelistManager whitelistManager, UsageManager usageManager, ConfigWorker configWorker) {
         super(chatHandler);
         this.whitelistManager = whitelistManager;
         this.modelsManager = aiWorker.getModelsManager();
+        this.usageManager = usageManager;
 
         eventHandler.setValidator((e) -> {
             UserPermission permission = whitelistManager.getPermission(chatId);
@@ -50,7 +53,7 @@ public class AdminScene extends BaseScene<Object> {
         };
 
         whitelistMenu = new WhitelistMenu(this, backListener, whitelistManager);
-        modelsUsageMenu = new ModelsUsageMenu(this, backListener, modelsManager, whitelistManager);
+        modelsUsageMenu = new ModelsUsageMenu(this, backListener, modelsManager, usageManager, whitelistManager);
         modelsMenu = new ModelsMenu(this, backListener, aiWorker, configWorker);
 
         menu = new MessageMenu<>(this, new FlexListButtonsLayout(2));

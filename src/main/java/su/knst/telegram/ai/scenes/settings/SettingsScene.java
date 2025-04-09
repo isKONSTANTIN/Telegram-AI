@@ -46,7 +46,7 @@ public class SettingsScene extends BaseScene<NewMessageEvent> {
         mainMenu = new MessageMenu<>(this, new FlexListButtonsLayout(6));
 
         presetsMenu = new PresetsMenu(this, (e) -> updateMain(false), aiWorker, preferencesManager, configWorker);
-        userUsageMenu = new UserUsageMenu(this, (e) -> updateMain(false), aiWorker.getModelsManager());
+        userUsageMenu = new UserUsageMenu(this, (e) -> updateMain(false), aiWorker.getUsageManager());
     }
 
     protected void updateMain(boolean newMessage) {

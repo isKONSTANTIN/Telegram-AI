@@ -202,7 +202,7 @@ public class AiBridge {
             String filename;
 
             try {
-                filename = aiWorker.generateFilename(answer).get();
+                filename = aiWorker.generateFilename(answer, aiMessage.getChatId()).get();
 
                 Path tmpFile = Files.createTempFile(Path.of("/","tmp","/"), "knst_ai_response_",".txt");
                 Files.write(tmpFile, bytes);
@@ -225,6 +225,8 @@ public class AiBridge {
                         Files.write(tmpFile, bytes);
 
                         sendFileAndLinkContext(tmpFile.toFile(), "broken_formatting.txt", aiMessage, replyTo).get();
+
+                        return;
                     } catch (IOException | ExecutionException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }

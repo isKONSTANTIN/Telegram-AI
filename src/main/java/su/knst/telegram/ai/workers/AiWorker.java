@@ -22,7 +22,11 @@ import su.knst.telegram.ai.utils.ChatMessagesBuilder;
 import su.knst.telegram.ai.utils.ContentMeta;
 import su.knst.telegram.ai.utils.functions.FunctionError;
 import su.knst.telegram.ai.utils.functions.FunctionResult;
+import su.knst.telegram.ai.utils.usage.GeneralUsageType;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -47,13 +51,21 @@ public class AiWorker {
     protected AiMessagesManager messagesManager;
     protected AiPresetsManager presetsManager;
     protected AiModelsManager modelsManager;
+    protected UsageManager usageManager;
 
     protected AiMemoryManager memoryManager;
 
     protected Value<List<OpenAI>> servers;
 
     @Inject
-    public AiWorker(ConfigWorker configWorker, AiContextManager contextManager, AiMemoryManager memoryManager, AiMessagesManager messagesManager, AiPresetsManager presetsManager, AiModelsManager modelsManager, AiTools aiTools) {
+    public AiWorker(ConfigWorker configWorker,
+                    AiContextManager contextManager,
+                    AiMemoryManager memoryManager,
+                    AiMessagesManager messagesManager,
+                    AiPresetsManager presetsManager,
+                    AiModelsManager modelsManager,
+                    AiTools aiTools,
+                    UsageManager usageManager) {
         this.config = configWorker.ai;
 
         this.aiTools = aiTools;
@@ -65,6 +77,7 @@ public class AiWorker {
         this.presetsManager = presetsManager;
         this.modelsManager = modelsManager;
         this.memoryManager = memoryManager;
+        this.usageManager = usageManager;
 
         this.servers = config.map((c) ->
                 Arrays.stream(c.servers).map((s) -> {
@@ -103,6 +116,10 @@ public class AiWorker {
 
     public AiModelsManager getModelsManager() {
         return modelsManager;
+    }
+
+    public UsageManager getUsageManager() {
+        return usageManager;
     }
 
     public AiTools getAiTools() {
@@ -247,7 +264,7 @@ public class AiWorker {
         Usage usage = chatCompletion.usage();
         ChatCompletion.Choice.Message message = chatCompletion.choices().get(0).message();
 
-        modelsManager.addUsage(model.getId(), chatId, usage);
+        usageManager.addUsage(model.getId(), chatId, usage);
 
         updatesConsumer.accept(new ContextUpdate(contextId, chatId, message, null, null));
 
@@ -270,7 +287,7 @@ public class AiWorker {
         if (messages.get(settings.messagesPerMemorizing).getRole().equals("tool"))
             toMemorize = toMemorize.subList(0, toMemorize.size() - 1);
 
-        var memory = createMemory(toMemorize, includeMemory);
+        var memory = createMemory(toMemorize, includeMemory, chatId);
 
         List<AiMessagesRecord> finalToMemorize = toMemorize;
         try {
@@ -307,7 +324,7 @@ public class AiWorker {
         return result;
     }
 
-    public CompletableFuture<String> generateFilename(String assistantOutput) {
+    public CompletableFuture<String> generateFilename(String assistantOutput, long chatId) {
         AiConfig.FilenameGeneration fg = config.get().filenameGeneration;
 
         if (!fg.useGPT)
@@ -337,6 +354,11 @@ public class AiWorker {
 
         return servers.get().get(fg.serverIndexToUse).chatClient()
                 .createChatCompletionAsync(chatCompletionRequest)
+                .thenApply((r) -> {
+                    usageManager.addUsage(chatId, GeneralUsageType.FILE_NAMING, r.usage(), fg.model.inputPricePer1M, fg.model.outputPricePer1M, LocalDate.now());
+
+                    return r;
+                })
                 .thenApply((r) -> r.choices().get(0).message().content())
                 .thenApply((s) -> {
                     if (!s.contains("."))
@@ -349,19 +371,35 @@ public class AiWorker {
                 });
     }
 
-    protected CompletableFuture<Images> createImage(String prompt, String size, String quality) {
+    protected CompletableFuture<Images> createImage(String prompt, String size, boolean isHd, long chatId) {
+        AiConfig.ImagineSettings settings = config.get().imagineSettings;
+
         CreateImageRequest.Builder builder = CreateImageRequest.newBuilder()
-                .model(config.get().imagineSettings.model)
+                .model(settings.model)
                 .prompt(prompt)
                 .size(size)
-                .quality(quality);
+                .quality(isHd ? "hd" : "standard");
 
-        return servers.get().get(config.get().imagineSettings.serverIndexToUse)
+        boolean is1024 = size.equals("1024x1024");
+
+        return servers.get().get(settings.serverIndexToUse)
                 .imagesClient()
-                .createImageAsync(builder.build());
+                .createImageAsync(builder.build()).thenApply((r) -> {
+                    double cost;
+
+                    if (isHd) {
+                        cost = is1024 ? settings.hd1024QualityPrice : settings.hd1792QualityPrice;
+                    }else {
+                        cost = is1024 ? settings.standard1024QualityPrice : settings.standard1792QualityPrice;
+                    }
+
+                    usageManager.addUsage(chatId, GeneralUsageType.IMAGINING, BigDecimal.valueOf(cost), LocalDate.now());
+
+                    return r;
+                });
     }
 
-    protected CompletableFuture<String> createMemory(List<AiMessagesRecord> messages, String lastMemory) {
+    protected CompletableFuture<String> createMemory(List<AiMessagesRecord> messages, String lastMemory, long chatId) {
         StringBuilder messagesBuilder = new StringBuilder();
 
         if (lastMemory != null && !lastMemory.isBlank())
@@ -455,7 +493,7 @@ public class AiWorker {
 
         CreateChatCompletionRequest.Builder builder = CreateChatCompletionRequest.newBuilder();
 
-        builder.model(settings.model)
+        builder.model(settings.model.model)
                 .message(ChatMessage.systemMessage(settings.preset.prompt))
                 .message(ChatMessage.userMessage(messagesBuilder.toString()))
                 .temperature(settings.preset.temperature)
@@ -468,6 +506,11 @@ public class AiWorker {
 
         return servers.get().get(settings.serverIndexToUse).chatClient()
                 .createChatCompletionAsync(chatCompletionRequest)
+                .thenApply((r) -> {
+                    usageManager.addUsage(chatId, GeneralUsageType.MEMORIZING, r.usage(), settings.model.inputPricePer1M, settings.model.outputPricePer1M, LocalDate.now());
+
+                    return r;
+                })
                 .thenApply((r) -> r.choices().get(0).message().content());
     }
 

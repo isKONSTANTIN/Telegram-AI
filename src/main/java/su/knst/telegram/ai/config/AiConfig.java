@@ -1,5 +1,7 @@
 package su.knst.telegram.ai.config;
 
+import java.util.Map;
+
 public class AiConfig {
     public Server[] servers = new Server[] {
             new Server()
@@ -15,7 +17,7 @@ public class AiConfig {
 
     public static class MemorizingSettings {
         public int serverIndexToUse = 0;
-        public String model = "gpt-4o-mini";
+        public Model model = new Model("GPT-4 Omni mini", "gpt-4o-mini", new String[] {}, 0.15, 0.6);
         public Preset preset = new Preset(
                 "Create concise internal notes for yourself, summarizing key conversation points to retain context for future interactions. Aim to shorten previous memories, and note that these original messages will no longer be included in the context.",
                 0.2f, 1.0f, 0.0f,0.0f, 500
@@ -28,6 +30,12 @@ public class AiConfig {
     public static class ImagineSettings {
         public int serverIndexToUse = 0;
         public String model = "dall-e-3";
+
+        public double standard1024QualityPrice = 0.004;
+        public double hd1024QualityPrice = 0.008;
+
+        public double standard1792QualityPrice = 0.008;
+        public double hd1792QualityPrice = 0.12;
     }
 
     public static class FilenameGeneration {
@@ -40,7 +48,8 @@ public class AiConfig {
         public Model model = new Model(
                 "GPT-4o mini",
                 "gpt-4o-mini",
-                new String[] {}
+                new String[] {},
+                0.15, 0.6
         );
     }
 
@@ -79,12 +88,17 @@ public class AiConfig {
                 "calculate"
         };
 
+        public double inputPricePer1M = 2.5;
+        public double outputPricePer1M = 10;
+
         public Model() {}
 
-        public Model(String name, String model, String[] includedTools) {
+        public Model(String name, String model, String[] includedTools, double inputPricePer1M, double outputPricePer1M) {
             this.name = name;
             this.model = model;
             this.includedTools = includedTools;
+            this.inputPricePer1M = inputPricePer1M;
+            this.outputPricePer1M = outputPricePer1M;
         }
     }
 

@@ -13,6 +13,7 @@ import io.github.stefanbratanov.jvm.openai.Usage;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
 import su.knst.telegram.ai.jooq.tables.records.ChatsRecord;
 import su.knst.telegram.ai.managers.AiModelsManager;
+import su.knst.telegram.ai.managers.UsageManager;
 import su.knst.telegram.ai.managers.WhitelistManager;
 import su.knst.telegram.ai.utils.MessageUtils;
 import su.knst.telegram.ai.utils.menu.AskMenu;
@@ -38,13 +39,16 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
     protected Usage totalUsage;
 
     protected AiModelsManager modelsManager;
+    protected UsageManager usageManager;
+
     protected WhitelistManager whitelistManager;
 
-    public ModelsUsageMenu(BaseScene<?> scene, EventListener<CallbackQueryEvent> backListener, AiModelsManager modelsManager, WhitelistManager whitelistManager) {
+    public ModelsUsageMenu(BaseScene<?> scene, EventListener<CallbackQueryEvent> backListener, AiModelsManager modelsManager, UsageManager usageManager, WhitelistManager whitelistManager) {
         super(scene, new FlexListButtonsLayout(4));
 
         this.modelsManager = modelsManager;
         this.whitelistManager = whitelistManager;
+        this.usageManager = usageManager;
 
         layout.addButton(new InlineKeyboardButton("<"), (e) -> {
             fetchUsage(date.minusMonths(1), modelRecord);
@@ -99,7 +103,7 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
     }
 
     protected void fetchUsage() {
-        this.usage = new ArrayList<>(modelsManager.getUsage(modelId, date));
+        this.usage = new ArrayList<>(usageManager.getModelUsage(modelId, date));
 
         int completionUsage = 0;
         int promptUsage = 0;
@@ -113,8 +117,6 @@ public class ModelsUsageMenu extends MessageMenu<FlexListButtonsLayout> {
 
         this.usage.sort(Comparator.comparingInt(p -> -p.second().totalTokens()));
     }
-
-
 
     public void refresh() {
         modelId = -1;

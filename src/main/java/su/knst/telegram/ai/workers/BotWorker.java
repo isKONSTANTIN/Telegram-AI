@@ -18,9 +18,11 @@ import su.knst.telegram.ai.handlers.ChatHandler;
 import su.knst.telegram.ai.jooq.tables.records.AiModelsRecord;
 import su.knst.telegram.ai.jooq.tables.records.AiPresetsRecord;
 import su.knst.telegram.ai.managers.ChatPreferencesManager;
+import su.knst.telegram.ai.managers.UsageManager;
 import su.knst.telegram.ai.managers.WhitelistManager;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -32,15 +34,17 @@ public class BotWorker {
     protected AiWorker aiWorker;
     protected ChatPreferencesManager chatPreferencesManager;
     protected ConfigWorker configWorker;
+    protected UsageManager usageManager;
 
     protected WhitelistManager whitelistManager;
 
     @Inject
-    public BotWorker(ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager chatPreferencesManager, WhitelistManager whitelistManager) {
+    public BotWorker(ConfigWorker configWorker, AiWorker aiWorker, ChatPreferencesManager chatPreferencesManager, UsageManager usageManager, WhitelistManager whitelistManager) {
         this.aiWorker = aiWorker;
         this.whitelistManager = whitelistManager;
         this.chatPreferencesManager = chatPreferencesManager;
         this.configWorker = configWorker;
+        this.usageManager = usageManager;
 
         botCore = new BotCore(configWorker.telegramToken.get());
 
@@ -70,7 +74,10 @@ public class BotWorker {
         if (aiWorker.getModelsManager().getModels().isEmpty()) {
             AiConfig.Model defaultModel = configWorker.ai.get().defaultModel;
 
-            aiWorker.getModelsManager().addModel((short) 0, defaultModel.name, defaultModel.model);
+            var newModel = aiWorker.getModelsManager().addModel((short) 0, defaultModel.name, defaultModel.model);
+
+            if (newModel.isPresent())
+                aiWorker.getModelsManager().editCosts(newModel.get().getId(), BigDecimal.valueOf(defaultModel.inputPricePer1M), BigDecimal.valueOf(defaultModel.outputPricePer1M));
         }
 
         validateSuperAdmin(configWorker.telegram.get());
@@ -96,6 +103,6 @@ public class BotWorker {
     }
 
     protected ChatHandler chatHandler(long chatId) {
-        return new ChatHandler(botCore, chatId, configWorker, aiWorker, chatPreferencesManager, whitelistManager, this);
+        return new ChatHandler(botCore, chatId, configWorker, aiWorker, chatPreferencesManager, whitelistManager, usageManager);
     }
 }

@@ -170,7 +170,7 @@ public class AiTools {
 
                     var notify = notifyFunctionCall(lang.get("functions.notify.imagine", "Dreaming up picture..."), handler);
 
-                    CompletableFuture<Images> futureImage = worker.createImage(prompt, size, hd ? "hd" : "standard");
+                    CompletableFuture<Images> futureImage = worker.createImage(prompt, size, hd, handler.getChatId());
 
                     try {
                         return new FunctionImageResult(futureImage.get().data().get(0).url());
