@@ -12,6 +12,7 @@ public class AiConfig {
     public FilenameGeneration filenameGeneration = new FilenameGeneration();
     public ImagineSettings imagineSettings = new ImagineSettings();
     public MemorizingSettings memorizingSettings = new MemorizingSettings();
+    public SpeechToTextSettings speechToTextSettings = new SpeechToTextSettings();
 
     public Cache cache = new Cache();
 
@@ -25,6 +26,12 @@ public class AiConfig {
 
         public int keepMessagesInContext = 15;
         public int messagesPerMemorizing = 10;
+    }
+
+    public static class SpeechToTextSettings {
+        public int serverIndexToUse = 0;
+        public String model = "whisper-1";
+        public double pricePerMinute = 0.006;
     }
 
     public static class ImagineSettings {

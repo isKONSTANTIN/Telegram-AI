@@ -11,6 +11,7 @@ import com.pengrad.telegrambot.model.message.origin.MessageOrigin;
 import com.pengrad.telegrambot.model.message.origin.MessageOriginChannel;
 import com.pengrad.telegrambot.model.message.origin.MessageOriginUser;
 import com.pengrad.telegrambot.model.reaction.ReactionTypeEmoji;
+import com.pengrad.telegrambot.model.request.ChatAction;
 import com.pengrad.telegrambot.request.GetFile;
 import io.github.stefanbratanov.jvm.openai.ContentPart;
 import su.knst.telegram.ai.Main;
@@ -22,13 +23,17 @@ import su.knst.telegram.ai.utils.CacheHandyBuilder;
 import su.knst.telegram.ai.utils.ContextMode;
 import su.knst.telegram.ai.utils.MentionMode;
 import su.knst.telegram.ai.utils.functions.FileDownloader;
+import su.knst.telegram.ai.utils.parsers.OggToWav;
 import su.knst.telegram.ai.utils.parsers.TextConverters;
 import su.knst.telegram.ai.workers.AiWorker;
+import ws.schild.jave.EncoderException;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -138,6 +143,10 @@ public class UserBridge {
 
             if (text != null)
                 processText(text, message, scene.lastContext);
+
+            if (message.voice() != null) {
+                processVoice(message.voice(), message, scene.lastContext);
+            }
         }finally {
             lock.unlock();
         }
@@ -364,6 +373,43 @@ public class UserBridge {
         } catch (InterruptedException | ExecutionException e) {
             scene.getChatHandler().sendMessage(MessageBuilder.text("Unsupported document type"));
         }
+    }
+
+    protected void processVoice(Voice audio, Message message, long contextId) {
+        CompletableFuture<String> textFuture = scene.getChatHandler().getCore().execute(new GetFile(audio.fileId())).thenCompose(r -> {
+            String path = r.file().filePath();
+            String fileUrl = "https://api.telegram.org/file/bot" + Main.getBotToken() + "/" + path;
+
+             return FileDownloader.downloadFile(fileUrl).thenApply((ogg) -> {
+                 try {
+                     return OggToWav.ogg2Wav(ogg);
+                 } catch (IOException | EncoderException e) {
+                     throw new RuntimeException(e);
+                 }finally {
+                     ogg.delete();
+                 }
+             }).thenCompose((f) -> {
+                try {
+                    return aiWorker.speech2text(f.toPath(), chatId, audio.duration());
+                }finally {
+                    f.delete();
+                }
+            });
+        });
+
+        scene.getChatHandler().setActionUntil(textFuture, ChatAction.typing);
+
+        String text;
+        try {
+            text = textFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            scene.getChatHandler().sendMessage(MessageBuilder.text("Failed to process voice"));
+
+            return;
+        }
+
+        processText(text, message, contextId);
     }
 
     protected Pair<Optional<String>, String> findTag(String text) {

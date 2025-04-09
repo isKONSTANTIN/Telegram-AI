@@ -26,6 +26,7 @@ import su.knst.telegram.ai.utils.usage.GeneralUsageType;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -259,7 +260,7 @@ public class AiWorker {
 
         ChatCompletion chatCompletion = servers.get().get(model.getServer())
                 .chatClient()
-                .createChatCompletion(createChatCompletionRequest(messages, preset, model, includeMemory));
+                .createChatCompletion(createChatCompletionRequest(messages, preset, model, includeMemory, chatId));
 
         Usage usage = chatCompletion.usage();
         ChatCompletion.Choice.Message message = chatCompletion.choices().get(0).message();
@@ -324,6 +325,25 @@ public class AiWorker {
         return result;
     }
 
+    public CompletableFuture<String> speech2text(Path file, long chatId, int secondsDuration) {
+        AiConfig.SpeechToTextSettings settings = config.get().speechToTextSettings;
+
+        AudioClient audioClient = servers.get().get(settings.serverIndexToUse).audioClient();
+        TranscriptionRequest request = TranscriptionRequest.newBuilder()
+                .model(settings.model)
+                .file(file)
+                .build();
+
+        return audioClient.createTranscriptAsync(request).thenApply((s) -> {
+            BigDecimal price = BigDecimal.valueOf(settings.pricePerMinute)
+                    .multiply(BigDecimal.valueOf((secondsDuration + 1) / 60d));
+
+            usageManager.addUsage(chatId, GeneralUsageType.SPEECH_TO_TEXT, price, LocalDate.now());
+
+            return s;
+        });
+    }
+
     public CompletableFuture<String> generateFilename(String assistantOutput, long chatId) {
         AiConfig.FilenameGeneration fg = config.get().filenameGeneration;
 
@@ -348,7 +368,8 @@ public class AiWorker {
                 .maxTokens(fg.preset.maxTokens)
                 .topP(fg.preset.topP)
                 .frequencyPenalty(fg.preset.frequencyPenalty)
-                .presencePenalty(fg.preset.presencePenalty);
+                .presencePenalty(fg.preset.presencePenalty)
+                .user("chat_id_" + chatId);
 
         CreateChatCompletionRequest chatCompletionRequest = builder.build();
 
@@ -378,7 +399,8 @@ public class AiWorker {
                 .model(settings.model)
                 .prompt(prompt)
                 .size(size)
-                .quality(isHd ? "hd" : "standard");
+                .quality(isHd ? "hd" : "standard")
+                .user("chat_id_" + chatId);
 
         boolean is1024 = size.equals("1024x1024");
 
@@ -500,7 +522,8 @@ public class AiWorker {
                 .maxTokens(settings.preset.maxTokens)
                 .topP(settings.preset.topP)
                 .frequencyPenalty(settings.preset.frequencyPenalty)
-                .presencePenalty(settings.preset.presencePenalty);
+                .presencePenalty(settings.preset.presencePenalty)
+                .user("chat_id_" + chatId);
 
         CreateChatCompletionRequest chatCompletionRequest = builder.build();
 
@@ -514,7 +537,7 @@ public class AiWorker {
                 .thenApply((r) -> r.choices().get(0).message().content());
     }
 
-    protected CreateChatCompletionRequest createChatCompletionRequest(List<AiMessagesRecord> messages, AiPresetsRecord preset, AiModelsRecord modelRecord, String lastMemory) {
+    protected CreateChatCompletionRequest createChatCompletionRequest(List<AiMessagesRecord> messages, AiPresetsRecord preset, AiModelsRecord modelRecord, String lastMemory, long chatId) {
         CreateChatCompletionRequest.Builder builder = CreateChatCompletionRequest.newBuilder();
 
         builder.tools(Arrays.stream(modelRecord.getIncludedTools())
@@ -527,7 +550,8 @@ public class AiWorker {
                 .maxTokens(preset.getMaxTokens())
                 .topP(preset.getTopP())
                 .frequencyPenalty(preset.getFrequencyPenalty())
-                .presencePenalty(preset.getPresencePenalty());
+                .presencePenalty(preset.getPresencePenalty())
+                .user("chat_id_" + chatId);
 
         return builder.build();
     }

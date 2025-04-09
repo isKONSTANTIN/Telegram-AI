@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'su.knst.telegram.ai'
-version = '2.4.0'
+version = '3.0.0'
 mainClassName = group + ".Main"
 archivesBaseName = 'Knst-Telegram-AI'
 
@@ -54,6 +54,9 @@ dependencies {
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '2.0.7'
 
     implementation group: 'com.github.vlsi.mxgraph', name: 'jgraphx', version: '4.2.2'
+
+    implementation 'ws.schild:jave-core:3.5.0'
+    implementation 'ws.schild:jave-all-deps:3.5.0'
 
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.3'
     jooqGenerator 'org.postgresql:postgresql:42.7.3'

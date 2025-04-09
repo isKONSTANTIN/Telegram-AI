@@ -99,12 +99,12 @@ public class UserUsageMenu extends MessageMenu<FlexListButtonsLayout> {
             builder.fixedWidth().append("Completion: ").fixedWidth();
             float percent = (float) usage.usage.completionTokens() / totalCompletion;
             MessageUtils.appendBar(builder, percent, 15);
-            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + usage.usage.completionTokens() + ", $" + usage.completionCost).gap();
+            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + usage.usage.completionTokens() + ", $" + usage.completionCost.setScale(2, RoundingMode.HALF_UP)).gap();
 
             builder.fixedWidth().append("Prompt:     ").fixedWidth();
             percent = (float) usage.usage.promptTokens() / totalPrompt;
             MessageUtils.appendBar(builder, percent, 15);
-            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + usage.usage.promptTokens() + ", $" + usage.promptCost)
+            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, " + usage.usage.promptTokens() + ", $" + usage.promptCost.setScale(2, RoundingMode.HALF_UP))
                     .gap().gap();
         }
 
@@ -115,7 +115,7 @@ public class UserUsageMenu extends MessageMenu<FlexListButtonsLayout> {
 
             float percent = Math.min(usage.cost().floatValue() / totalGeneralCost.floatValue(), 1);
             MessageUtils.appendBar(builder, percent, 15);
-            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, $" + usage.cost()).gap();
+            builder.append(" " + (Math.round(percent * 1000) / 10f) + "%, $" + usage.cost().setScale(2, RoundingMode.HALF_UP)).gap();
         }
 
         setMessage(builder.build());
