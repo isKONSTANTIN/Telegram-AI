@@ -6,6 +6,16 @@ Knst's Telegram AI Bot is designed to enhance your experience with GPT models an
     <img src="readme_screenshot.png" alt="Telegram AI logo" style="width:853px;">
 </p>
 
+## Enterprise version
+
+**Public paid version deployed here: [@godlike_gpt_bot](https://t.me/godlike_gpt_bot)**
+
+<p align="center">
+    <img src="https://github.com/user-attachments/assets/c081b7f5-c410-4b34-b274-90e1372302f7" alt="Telegram AI E QR" style="width:256px;">
+</p>
+
+Payment is made via Telegram Stars. Completely unlimited, various models are available.
+
 ## Features 🌟
 
 ### Core Functionalities
@@ -25,6 +35,8 @@ Knst's Telegram AI Bot is designed to enhance your experience with GPT models an
 - 🔄 Adaptive Responses: Automatically update responses if you edit your last message.
 
 - 🔧 Custom Presets: Tailor AI interactions with extensive presets, including prompt customization and response settings.
+
+- 🗣️ Voice support: Automatic transcription of voice messages
 
 ### Features For Owner
 
